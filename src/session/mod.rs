@@ -117,7 +117,7 @@ impl IntoResponseParts for Session {
         self,
         mut res: ResponseParts,
     ) -> Result<axum::response::ResponseParts, Self::Error> {
-        let _ = res.extensions_mut().insert(Arc::new(self));
+        let _ = res.extensions_mut().insert(self);
         Ok(res)
     }
 }

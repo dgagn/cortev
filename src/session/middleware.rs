@@ -10,7 +10,7 @@ use std::{
 use tower_layer::Layer;
 use tower_service::Service;
 
-use crate::Session;
+use crate::{session::{builder::BuildSession, driver::SessionData}, Session};
 
 use super::driver::SessionDriver;
 
@@ -76,7 +76,7 @@ where
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, req: extract::Request) -> Self::Future {
+    fn call(&mut self, mut req: extract::Request) -> Self::Future {
         let not_ready_inner = self.inner.clone();
         let mut ready_inner = std::mem::replace(&mut self.inner, not_ready_inner);
 
@@ -84,6 +84,12 @@ where
         let future = Box::pin(async move {
             let key = try_into_response!(driver.init().await);
             println!("session key before response: {}", key);
+
+            let session = Session::builder("helloworld")
+                .with_data(SessionData::default())
+                .build();
+
+            req.extensions_mut().insert(session);
 
             let mut response = try_into_response!(ready_inner.call(req).await);
 
@@ -94,6 +100,8 @@ where
                 println!("session key after response: {}", key);
                 println!("session state after response: {:?}", state);
                 println!("session data after response: {:?}", data);
+            } else {
+                println!("session extension is missing");
             }
 
             response
