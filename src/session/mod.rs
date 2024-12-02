@@ -1,5 +1,8 @@
 #![allow(dead_code)]
 
+mod middleware;
+mod driver;
+
 use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
