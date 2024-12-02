@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -17,7 +19,10 @@ pub struct Session {
 
 impl From<HashMap<String, serde_json::Value>> for Session {
     fn from(data: HashMap<String, serde_json::Value>) -> Self {
-        Self { data, ..Default::default() }
+        Self {
+            data,
+            ..Default::default()
+        }
     }
 }
 
@@ -28,7 +33,9 @@ impl Session {
         V: serde::de::DeserializeOwned,
     {
         let key = key.as_ref();
-        self.data.get(key).and_then(|value| serde_json::from_value(value.to_owned()).ok())
+        self.data
+            .get(key)
+            .and_then(|value| serde_json::from_value(value.to_owned()).ok())
     }
 
     pub fn insert<K, V>(&mut self, key: K, value: V)
@@ -41,11 +48,22 @@ impl Session {
         self.state = SessionState::Changed;
     }
 
+    pub fn state(&self) -> SessionState {
+        self.state
+    }
+
     pub fn regenerate(&mut self) {
         self.state = SessionState::Regenerated;
     }
 
     pub fn invalidate(&mut self) {
         self.state = SessionState::Invalidated;
+    }
+
+    pub fn has<K>(&self, key: K) -> bool
+    where
+        K: AsRef<str>,
+    {
+        self.data.contains_key(key.as_ref())
     }
 }

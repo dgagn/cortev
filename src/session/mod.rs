@@ -1,11 +1,18 @@
 mod inner;
 
+type SessionKey = String;
+
 #[derive(Debug, Default)]
 pub struct Session {
     inner: inner::Session,
+    key: SessionKey,
 }
 
 impl Session {
+    pub fn key(&self) -> &str {
+        &self.key
+    }
+
     pub fn get<K, V>(&self, key: K) -> Option<V>
     where
         K: AsRef<str>,
@@ -34,5 +41,13 @@ impl Session {
     pub fn invalidate(mut self) -> Self {
         self.inner.invalidate();
         self
+    }
+
+    pub fn has(&self, key: &str) -> bool {
+        self.inner.has(key)
+    }
+
+    pub fn state(&self) -> inner::SessionState {
+        self.inner.state()
     }
 }
