@@ -2,7 +2,10 @@ use std::{sync::Arc, time::Duration};
 
 use dashmap::DashMap;
 
-use crate::{session::key::SessionKey, Session};
+use crate::{
+    session::{builder::BuildSession, key::SessionKey},
+    Session,
+};
 
 use super::{SessionData, SessionDriver, SessionError, SessionResult};
 

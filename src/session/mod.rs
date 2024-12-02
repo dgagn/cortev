@@ -1,41 +1,13 @@
+pub mod builder;
 pub mod driver;
 pub mod key;
 pub mod middleware;
+pub mod state;
 
 use std::collections::HashMap;
 
 use key::SessionKey;
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum SessionState {
-    /// The session is unchanged since creation.
-    #[default]
-    Unchanged,
-    /// The session's data has been modified.
-    Changed,
-    /// The session has been regenerated.
-    Regenerated,
-    /// The session has been invalidated and is no longer valid.
-    Invalidated,
-}
-
-/// Defines a transition mechanism for states.
-pub trait Transition<T> {
-    /// Transitions from the current state to a new state.
-    fn transition(self, new_state: T) -> T;
-}
-
-impl Transition<SessionState> for SessionState {
-    fn transition(self, new_state: SessionState) -> SessionState {
-        match (self, new_state) {
-            (_, Self::Invalidated) => Self::Invalidated,
-            (_, Self::Regenerated) => Self::Regenerated,
-            (Self::Unchanged, Self::Changed) => Self::Changed,
-            (_, Self::Unchanged) => self,
-            (current, _) => current,
-        }
-    }
-}
+use state::{SessionState, Transition};
 
 #[derive(Debug, Clone)]
 pub struct Session {
@@ -44,54 +16,7 @@ pub struct Session {
     data: HashMap<String, serde_json::Value>,
 }
 
-pub struct WithData;
-pub struct WithoutData;
-
-pub struct SessionBuilder<State = WithoutData> {
-    key: SessionKey,
-    data: Option<HashMap<String, serde_json::Value>>,
-    state: std::marker::PhantomData<State>,
-}
-
-impl SessionBuilder {
-    pub fn new<K: Into<SessionKey>>(key: K) -> Self {
-        Self {
-            key: key.into(),
-            data: None,
-            state: Default::default(),
-        }
-    }
-}
-
-impl SessionBuilder<WithoutData> {
-    pub fn with_data(self, data: HashMap<String, serde_json::Value>) -> SessionBuilder<WithData> {
-        SessionBuilder {
-            key: self.key,
-            data: Some(data),
-            state: std::marker::PhantomData::<WithData>,
-        }
-    }
-}
-
-impl SessionBuilder<WithData> {
-    pub fn build(self) -> Session {
-        Session {
-            key: self.key,
-            // Safe because `WithData` guarantees `data` is set
-            data: self.data.unwrap(),
-            state: SessionState::Unchanged,
-        }
-    }
-}
-
 impl Session {
-    pub fn builder<K>(key: K) -> SessionBuilder
-    where
-        K: Into<SessionKey>,
-    {
-        SessionBuilder::new(key.into())
-    }
-
     pub fn key(&self) -> &str {
         &self.key
     }
