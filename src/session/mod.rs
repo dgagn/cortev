@@ -4,9 +4,9 @@ pub mod key;
 pub mod middleware;
 pub mod state;
 
-use std::{collections::HashMap, convert::Infallible, sync::Arc};
-use axum::{async_trait, http::StatusCode};
-use axum_core::{extract::FromRequestParts, response::{IntoResponse, IntoResponseParts, ResponseParts}};
+use std::{collections::HashMap, convert::Infallible};
+use http::{request, StatusCode};
+use axum_core::{extract::FromRequestParts, response::{IntoResponse, IntoResponseParts, Response, ResponseParts}};
 use key::SessionKey;
 use state::{SessionState, Transition};
 
@@ -116,14 +116,14 @@ impl IntoResponseParts for Session {
     fn into_response_parts(
         self,
         mut res: ResponseParts,
-    ) -> Result<axum::response::ResponseParts, Self::Error> {
+    ) -> Result<ResponseParts, Self::Error> {
         let _ = res.extensions_mut().insert(self);
         Ok(res)
     }
 }
 
 impl IntoResponse for Session {
-    fn into_response(self) -> axum_core::response::Response {
+    fn into_response(self) -> Response {
         (self, ()).into_response()
     }
 }
@@ -133,12 +133,12 @@ impl IntoResponse for Session {
 pub struct MissingSessionExtension;
 
 impl IntoResponse for MissingSessionExtension {
-    fn into_response(self) -> axum::response::Response {
+    fn into_response(self) -> Response {
         (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
     }
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl<S> FromRequestParts<S> for Session
 where
     S: Send + Sync + 'static,
@@ -146,7 +146,7 @@ where
     type Rejection = MissingSessionExtension;
 
     async fn from_request_parts(
-        parts: &mut axum::http::request::Parts,
+        parts: &mut request::Parts,
         _: &S,
     ) -> Result<Self, Self::Rejection> {
         parts

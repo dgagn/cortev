@@ -139,10 +139,12 @@ name = "cortev"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
  "axum-core",
  "dashmap",
  "futures",
+ "http",
  "rand",
  "serde",
  "serde_json",

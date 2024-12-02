@@ -101,7 +101,7 @@ where
                 println!("session state after response: {:?}", state);
                 println!("session data after response: {:?}", data);
             } else {
-                println!("session extension is missing");
+                println!("session is unchanged");
             }
 
             response

@@ -4,6 +4,7 @@ use session::{driver::memory::MemoryDriver, middleware::SessionLayer};
 use tokio::net::TcpListener;
 
 pub mod session;
+pub mod cookie;
 
 async fn handler(session: Session) -> (Session, &'static str) {
     let session = session.insert("hello", "world");

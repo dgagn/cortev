@@ -75,7 +75,7 @@ pub trait SessionDriver: Sync {
     ) -> impl Future<Output = SessionResult<SessionKey>> + Send {
         async move {
             let session_key = self.create(data).await?;
-            self.destroy(key.into()).await?;
+            self.destroy(key).await?;
             Ok(session_key)
         }
     }
