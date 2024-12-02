@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 pub mod middleware;
-pub mod store;
+pub mod driver;
 
 use std::collections::HashMap;
 

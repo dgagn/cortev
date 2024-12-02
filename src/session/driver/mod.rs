@@ -46,14 +46,12 @@ impl IntoResponse for SessionError {
     }
 }
 
-pub trait SessionStore {
+pub trait SessionDriver: Sync {
     fn read(&self, key: &str) -> impl Future<Output = SessionResult<Session>> + Send;
     fn write(&self, key: String, data: SessionData) -> impl Future<Output = SessionResult<String>> + Send;
     fn destroy(&self, key: &str) -> impl Future<Output = SessionResult<()>> + Send;
     fn ttl(&self) -> Duration;
-}
 
-pub trait SessionManager: SessionStore + Sync {
     fn create(&self, data: SessionData) -> impl Future<Output = SessionResult<String>> + Send {
         let key = generate_random_key();
         self.write(key, data)

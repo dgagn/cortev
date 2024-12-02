@@ -4,7 +4,7 @@ use dashmap::DashMap;
 
 use crate::Session;
 
-use super::{SessionData, SessionStore, SessionError, SessionManager, SessionResult};
+use super::{SessionData, SessionDriver, SessionError, SessionResult};
 
 #[derive(Debug, Clone)]
 pub struct MemoryDriver {
@@ -21,7 +21,7 @@ impl Default for MemoryDriver {
     }
 }
 
-impl SessionStore for MemoryDriver {
+impl SessionDriver for MemoryDriver {
     async fn read(&self, key: &str) -> SessionResult<Session> {
         let session = self.sessions.get(key);
         let session = session.map(|session| {
@@ -48,5 +48,3 @@ impl SessionStore for MemoryDriver {
         self.ttl
     }
 }
-
-impl SessionManager for MemoryDriver {}
