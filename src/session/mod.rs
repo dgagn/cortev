@@ -173,7 +173,7 @@ impl Session {
         self.increment_by(key, -decrementor)
     }
 
-    pub(crate) fn into_parts(self) -> (SessionState, HashMap<String, serde_json::Value>) {
-        (self.state, self.data)
+    pub(crate) fn into_parts(self) -> (String, SessionState, HashMap<String, serde_json::Value>) {
+        (self.id, self.state, self.data)
     }
 }
