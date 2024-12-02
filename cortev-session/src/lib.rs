@@ -7,11 +7,13 @@ pub mod middleware;
 mod state;
 pub use state::SessionState;
 
-
-use std::{collections::HashMap, convert::Infallible};
+use axum_core::{
+    extract::FromRequestParts,
+    response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
+};
 use http::{request, StatusCode};
-use axum_core::{extract::FromRequestParts, response::{IntoResponse, IntoResponseParts, Response, ResponseParts}};
 use state::Transition;
+use std::{collections::HashMap, convert::Infallible};
 
 #[derive(Debug, Clone)]
 pub struct Session {
@@ -116,10 +118,7 @@ impl Session {
 impl IntoResponseParts for Session {
     type Error = Infallible;
 
-    fn into_response_parts(
-        self,
-        mut res: ResponseParts,
-    ) -> Result<ResponseParts, Self::Error> {
+    fn into_response_parts(self, mut res: ResponseParts) -> Result<ResponseParts, Self::Error> {
         let _ = res.extensions_mut().insert(self);
         Ok(res)
     }

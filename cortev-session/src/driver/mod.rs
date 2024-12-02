@@ -1,8 +1,8 @@
-use std::{collections::HashMap, future::Future, time::Duration};
 use anyhow::Context;
-use http::StatusCode;
 use axum_core::response::{IntoResponse, Response};
+use http::StatusCode;
 use rand::distributions::{Alphanumeric, DistString};
+use std::{collections::HashMap, future::Future, time::Duration};
 
 use super::{key::SessionKey, Session};
 
@@ -41,16 +41,12 @@ pub enum SessionError {
 impl IntoResponse for SessionError {
     fn into_response(self) -> Response {
         match self {
-            SessionError::NotFound => (
-                StatusCode::NOT_FOUND,
-                "session was not found",
-            )
-                .into_response(),
-            SessionError::Unexpected(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "unexpected error",
-            )
-                .into_response(),
+            SessionError::NotFound => {
+                (StatusCode::NOT_FOUND, "session was not found").into_response()
+            }
+            SessionError::Unexpected(_) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "unexpected error").into_response()
+            }
         }
     }
 }

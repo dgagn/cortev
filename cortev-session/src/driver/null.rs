@@ -3,8 +3,7 @@ use crate::{builder::BuildSession, key::SessionKey, Session};
 use super::{SessionData, SessionDriver, SessionResult};
 
 #[derive(Debug, Default, Clone)]
-pub struct NullDriver {
-}
+pub struct NullDriver {}
 
 impl SessionDriver for NullDriver {
     async fn read(&self, key: SessionKey) -> SessionResult<Session> {
@@ -14,11 +13,7 @@ impl SessionDriver for NullDriver {
         Ok(session)
     }
 
-    async fn write(
-        &self,
-        key: SessionKey,
-        _data: super::SessionData,
-    ) -> SessionResult<SessionKey> {
+    async fn write(&self, key: SessionKey, _data: super::SessionData) -> SessionResult<SessionKey> {
         Ok(key)
     }
 
