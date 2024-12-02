@@ -7,3 +7,7 @@ description = "Web framework built on top of axum"
 license = "MIT"
 repository = "https://github.com/cortev/framework"
 readme = "README.md"
+
+[dependencies]
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"

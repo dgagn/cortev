@@ -1,3 +1,8 @@
+pub mod session;
+
 fn main() {
-    println!("Hello, world!");
+    let session = session::Session::default();
+    let session = session.insert("key", 3);
+
+    println!("{:?}", session);
 }
