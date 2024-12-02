@@ -1,4 +1,4 @@
-pub mod inner;
+mod inner;
 
 #[derive(Debug, Default)]
 pub struct Session {
@@ -21,6 +21,18 @@ impl Session {
         V: Into<serde_json::Value>,
     {
         self.inner.insert(key, value.into());
+        self
+    }
+
+    #[must_use]
+    pub fn regenerate(mut self) -> Self {
+        self.inner.regenerate();
+        self
+    }
+
+    #[must_use]
+    pub fn invalidate(mut self) -> Self {
+        self.inner.invalidate();
         self
     }
 }

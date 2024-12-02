@@ -40,4 +40,12 @@ impl Session {
         self.data.insert(key, value.into());
         self.state = SessionState::Changed;
     }
+
+    pub fn regenerate(&mut self) {
+        self.state = SessionState::Regenerated;
+    }
+
+    pub fn invalidate(&mut self) {
+        self.state = SessionState::Invalidated;
+    }
 }
