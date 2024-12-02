@@ -1,6 +1,6 @@
-pub mod middleware;
 pub mod driver;
 pub mod key;
+pub mod middleware;
 
 use std::collections::HashMap;
 
@@ -177,7 +177,9 @@ impl Session {
         self.increment_by(key, -decrementor)
     }
 
-    pub(crate) fn into_parts(self) -> (SessionKey, SessionState, HashMap<String, serde_json::Value>) {
+    pub(crate) fn into_parts(
+        self,
+    ) -> (SessionKey, SessionState, HashMap<String, serde_json::Value>) {
         (self.key, self.state, self.data)
     }
 }

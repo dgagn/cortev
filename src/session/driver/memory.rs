@@ -24,16 +24,14 @@ impl Default for MemoryDriver {
 impl SessionDriver for MemoryDriver {
     async fn read(&self, key: SessionKey) -> SessionResult<Session> {
         let session = self.sessions.get(&key);
-        let session = session.map(|session| {
-            session.value().to_owned()
-        }).ok_or(SessionError::NotFound)?;
+        let session = session
+            .map(|session| session.value().to_owned())
+            .ok_or(SessionError::NotFound)?;
         Ok(session)
     }
 
     async fn write(&self, key: SessionKey, data: SessionData) -> SessionResult<SessionKey> {
-        let session = Session::builder(key.clone())
-            .with_data(data)
-            .build();
+        let session = Session::builder(key.clone()).with_data(data).build();
 
         self.sessions.insert(key.clone(), session);
         Ok(key)

@@ -1,6 +1,6 @@
 use axum::{routing, Router};
-use session::{driver::memory::MemoryDriver, middleware::SessionLayer};
 pub use session::Session;
+use session::{driver::memory::MemoryDriver, middleware::SessionLayer};
 use tokio::net::TcpListener;
 
 pub mod session;
@@ -20,7 +20,5 @@ async fn main() {
         .route("/", routing::get(handler))
         .layer(session_layer);
 
-    axum::serve(tcp_listener, router)
-        .await
-        .unwrap();
+    axum::serve(tcp_listener, router).await.unwrap();
 }

@@ -14,8 +14,7 @@ trait ToJson {
 
 impl ToJson for SessionData {
     fn to_json(&self) -> SessionResult<String> {
-        let value = serde_json::to_string(&self)
-            .context("failed to serialize session data")?;
+        let value = serde_json::to_string(&self).context("failed to serialize session data")?;
         Ok(value)
     }
 }
@@ -36,19 +35,27 @@ pub enum SessionError {
 impl IntoResponse for SessionError {
     fn into_response(self) -> axum::response::Response {
         match self {
-            SessionError::NotFound => {
-                (StatusCode::NOT_FOUND, axum::response::Json("session not found")).into_response()
-            }
-            SessionError::Unexpected(_) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, axum::response::Json("unexpected error")).into_response()
-            }
+            SessionError::NotFound => (
+                StatusCode::NOT_FOUND,
+                axum::response::Json("session not found"),
+            )
+                .into_response(),
+            SessionError::Unexpected(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                axum::response::Json("unexpected error"),
+            )
+                .into_response(),
         }
     }
 }
 
 pub trait SessionDriver: Sync {
     fn read(&self, key: SessionKey) -> impl Future<Output = SessionResult<Session>> + Send;
-    fn write(&self, key: SessionKey, data: SessionData) -> impl Future<Output = SessionResult<SessionKey>> + Send;
+    fn write(
+        &self,
+        key: SessionKey,
+        data: SessionData,
+    ) -> impl Future<Output = SessionResult<SessionKey>> + Send;
     fn destroy(&self, key: SessionKey) -> impl Future<Output = SessionResult<()>> + Send;
     fn ttl(&self) -> Duration;
 
@@ -61,7 +68,11 @@ pub trait SessionDriver: Sync {
         self.create(SessionData::default())
     }
 
-    fn regenerate(&self, key: SessionKey, data: SessionData) -> impl Future<Output = SessionResult<SessionKey>> + Send {
+    fn regenerate(
+        &self,
+        key: SessionKey,
+        data: SessionData,
+    ) -> impl Future<Output = SessionResult<SessionKey>> + Send {
         async move {
             let session_key = self.create(data).await?;
             self.destroy(key.into()).await?;
@@ -69,7 +80,10 @@ pub trait SessionDriver: Sync {
         }
     }
 
-    fn invalidate(&self, key: SessionKey) -> impl Future<Output = SessionResult<SessionKey>> + Send {
+    fn invalidate(
+        &self,
+        key: SessionKey,
+    ) -> impl Future<Output = SessionResult<SessionKey>> + Send {
         async move {
             self.destroy(key).await?;
             self.init().await

@@ -1,9 +1,12 @@
+use axum_core::{extract, response::IntoResponse, response::Response};
 use core::fmt;
-use std::{convert::Infallible, future::Future, pin::Pin, task::{Context, Poll}};
-
-use axum::response::Response;
-use axum_core::{extract, response::IntoResponse};
 use futures::future::BoxFuture;
+use std::{
+    convert::Infallible,
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
 use tower_layer::Layer;
 use tower_service::Service;
 
@@ -12,7 +15,7 @@ use super::driver::SessionDriver;
 #[derive(Debug, Clone)]
 pub struct SessionMiddleware<S, D: SessionDriver> {
     inner: S,
-    driver: D
+    driver: D,
 }
 
 impl<S, D: SessionDriver> SessionMiddleware<S, D> {
@@ -23,7 +26,7 @@ impl<S, D: SessionDriver> SessionMiddleware<S, D> {
 
 #[derive(Debug, Clone)]
 pub struct SessionLayer<D: SessionDriver> {
-    driver: D
+    driver: D,
 }
 
 impl<D: SessionDriver> SessionLayer<D> {
@@ -51,7 +54,10 @@ macro_rules! try_into_response {
 
 impl<S, D> Service<extract::Request> for SessionMiddleware<S, D>
 where
-    S: Service<extract::Request, Response = axum_core::response::Response, Error = Infallible> + Clone + Send + 'static,
+    S: Service<extract::Request, Response = axum_core::response::Response, Error = Infallible>
+        + Clone
+        + Send
+        + 'static,
     D: SessionDriver + Clone + Send + 'static,
     S::Future: Send + 'static,
     S::Error: IntoResponse,
@@ -61,7 +67,10 @@ where
     type Error = Infallible;
     type Future = ResponseFuture;
 
-    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
@@ -79,9 +88,7 @@ where
             response
         });
 
-        ResponseFuture { 
-            inner: future
-        }
+        ResponseFuture { inner: future }
     }
 }
 
