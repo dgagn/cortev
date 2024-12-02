@@ -20,7 +20,13 @@ impl ToJson for SessionData {
 }
 
 #[cfg(feature = "memory")]
-pub mod memory;
+mod memory;
+mod null;
+
+// Drivers
+#[cfg(feature = "memory")]
+pub use memory::MemoryDriver;
+pub use null::NullDriver;
 
 type SessionResult<T> = Result<T, SessionError>;
 

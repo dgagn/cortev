@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+#[cfg(feature = "memory")]
 use dashmap::DashMap;
 
 use crate::{
