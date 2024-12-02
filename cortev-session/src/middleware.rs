@@ -1,6 +1,5 @@
 use axum_core::{extract, response::IntoResponse, response::Response};
 use core::fmt;
-use futures::future::BoxFuture;
 use std::{
     convert::Infallible,
     future::Future,
@@ -10,9 +9,11 @@ use std::{
 use tower_layer::Layer;
 use tower_service::Service;
 
-use crate::{session::{builder::BuildSession, driver::SessionData}, Session};
+use crate::{builder::BuildSession, driver::SessionData, Session};
 
 use super::driver::SessionDriver;
+
+type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 #[derive(Debug, Clone)]
 pub struct SessionMiddleware<S, D: SessionDriver> {

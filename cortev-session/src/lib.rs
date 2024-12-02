@@ -1,14 +1,17 @@
 pub mod builder;
 pub mod driver;
-pub mod key;
+mod key;
+pub use key::SessionKey;
+
 pub mod middleware;
-pub mod state;
+mod state;
+pub use state::SessionState;
+
 
 use std::{collections::HashMap, convert::Infallible};
 use http::{request, StatusCode};
 use axum_core::{extract::FromRequestParts, response::{IntoResponse, IntoResponseParts, Response, ResponseParts}};
-use key::SessionKey;
-use state::{SessionState, Transition};
+use state::Transition;
 
 #[derive(Debug, Clone)]
 pub struct Session {

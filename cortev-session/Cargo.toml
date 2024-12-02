@@ -1,0 +1,30 @@
+[package]
+name = "cortev-session"
+version = "0.1.0"
+edition = "2021"
+authors = ["Dany Gagnon <admin@ovior.ca>"]
+description = "Session management for cortev"
+license = "MIT"
+repository = "https://github.com/cortev/framework"
+readme = "README.md"
+
+[dependencies]
+async-trait = "0.1.83"
+axum-core = "0.4.5"
+http = "1.1.0"
+rand = "0.8.5"
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"
+tower-layer = "0.3.3"
+tower-service = "0.3.3"
+anyhow = "1.0.93"
+thiserror = "2.0.3"
+
+dashmap = { version = "6.1.0", optional = true }
+
+[lints]
+workspace = true
+
+[features]
+default = []
+memory = ["dep:dashmap"]

@@ -1,0 +1,22 @@
+[package]
+name = "cortev"
+version = "0.1.0"
+edition = "2021"
+authors = ["Dany Gagnon <admin@ovior.ca>"]
+description = "Web framework built on top of axum"
+license = "MIT"
+repository = "https://github.com/cortev/framework"
+readme = "README.md"
+
+[dependencies]
+cortev-session = { path = "../cortev-session", optional = true }
+
+[lints]
+workspace = true
+
+
+[features]
+default = ["session"]
+
+session = ["dep:cortev-session"]
+session-memory = ["session", "cortev-session?/memory"]

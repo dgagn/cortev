@@ -3,10 +3,7 @@ use std::{sync::Arc, time::Duration};
 #[cfg(feature = "memory")]
 use dashmap::DashMap;
 
-use crate::{
-    session::{builder::BuildSession, key::SessionKey},
-    Session,
-};
+use crate::{builder::BuildSession, key::SessionKey, Session};
 
 use super::{SessionData, SessionDriver, SessionError, SessionResult};
 

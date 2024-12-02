@@ -1,4 +1,4 @@
-use crate::{session::builder::BuildSession, Session};
+use crate::{builder::BuildSession, key::SessionKey, Session};
 
 use super::{SessionData, SessionDriver, SessionResult};
 
@@ -7,7 +7,7 @@ pub struct NullDriver {
 }
 
 impl SessionDriver for NullDriver {
-    async fn read(&self, key: crate::session::key::SessionKey) -> SessionResult<Session> {
+    async fn read(&self, key: SessionKey) -> SessionResult<Session> {
         let session = Session::builder(key)
             .with_data(SessionData::default())
             .build();
@@ -16,13 +16,13 @@ impl SessionDriver for NullDriver {
 
     async fn write(
         &self,
-        key: crate::session::key::SessionKey,
+        key: SessionKey,
         _data: super::SessionData,
-    ) -> SessionResult<crate::session::key::SessionKey> {
+    ) -> SessionResult<SessionKey> {
         Ok(key)
     }
 
-    async fn destroy(&self, _key: crate::session::key::SessionKey) -> SessionResult<()> {
+    async fn destroy(&self, _key: SessionKey) -> SessionResult<()> {
         Ok(())
     }
 

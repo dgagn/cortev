@@ -2,9 +2,13 @@ use std::collections::HashMap;
 
 use super::{key::SessionKey, state::SessionState, Session};
 
+#[derive(Debug)]
 pub struct WithData;
+
+#[derive(Debug)]
 pub struct NoData;
 
+#[derive(Debug)]
 pub struct SessionBuilder<State = NoData> {
     key: SessionKey,
     data: Option<HashMap<String, serde_json::Value>>,

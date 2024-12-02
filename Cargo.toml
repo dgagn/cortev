@@ -1,34 +1,41 @@
-[package]
-name = "cortev"
-version = "0.1.0"
-edition = "2021"
-authors = ["Dany Gagnon <admin@ovior.ca>"]
-description = "Web framework built on top of axum"
-license = "MIT"
-repository = "https://github.com/cortev/framework"
-readme = "README.md"
+[workspace]
+members = ["cortev", "cortev-*", "examples/*"]
+default-members = ["cortev", "cortev-*"]
+resolver = "2"
 
-[dependencies]
-anyhow = "1.0.93"
-async-trait = "0.1.83"
-axum = "0.7.9"
-axum-core = "0.4.5"
-dashmap = { version = "6.1.0", optional = true }
-futures = "0.3.31"
-http = "1.1.0"
-rand = "0.8.5"
-serde = { version = "1.0.215", features = ["derive"] }
-serde_json = "1.0.133"
-thiserror = "2.0.3"
-tokio = { version = "1.41.1", features = ["full"] }
-tower-layer = "0.3.3"
-tower-service = "0.3.3"
+[workspace.lints.rust]
+unsafe_code = "forbid"
 
-[features]
-default = []
+rust_2018_idioms = { level = "warn", priority = -1 }
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
 
-# Session
-session = []
+[workspace.lints.clippy]
+type_complexity = "allow"
 
-# Drivers
-memory = ["dashmap"]
+await_holding_lock = "warn"
+dbg_macro = "warn"
+empty_enum = "warn"
+enum_glob_use = "warn"
+exit = "warn"
+filter_map_next = "warn"
+fn_params_excessive_bools = "warn"
+if_let_mutex = "warn"
+imprecise_flops = "warn"
+inefficient_to_string = "warn"
+linkedlist = "warn"
+lossy_float_literal = "warn"
+macro_use_imports = "warn"
+match_on_vec_items = "warn"
+match_wildcard_for_single_variants = "warn"
+mem_forget = "warn"
+needless_borrow = "warn"
+needless_continue = "warn"
+option_option = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+str_to_string = "warn"
+suboptimal_flops = "warn"
+todo = "warn"
+unnested_or_patterns = "warn"
+unused_self = "warn"
+verbose_file_reads = "warn"

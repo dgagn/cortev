@@ -1,15 +1,7 @@
 use axum::{routing, Router};
-pub use session::Session;
-use session::middleware::SessionLayer;
+pub use cortev::session::Session;
+use cortev::session::{driver::MemoryDriver, middleware::SessionLayer};
 use tokio::net::TcpListener;
-
-use session::driver::NullDriver;
-
-#[cfg(feature = "memory")]
-use session::driver::MemoryDriver;
-
-pub mod session;
-pub mod cookie;
 
 async fn handler(session: Session) -> (Session, &'static str) {
     let session = session.insert("hello", "world");
@@ -18,8 +10,6 @@ async fn handler(session: Session) -> (Session, &'static str) {
 
 #[tokio::main]
 async fn main() {
-    let driver = NullDriver::default();
-    #[cfg(feature = "memory")]
     let driver = MemoryDriver::default();
 
     let session_layer = SessionLayer::new(driver);
