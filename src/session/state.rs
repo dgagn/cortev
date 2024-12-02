@@ -23,7 +23,6 @@ impl Transition<SessionState> for SessionState {
             (_, Self::Invalidated) => Self::Invalidated,
             (_, Self::Regenerated) => Self::Regenerated,
             (Self::Unchanged, Self::Changed) => Self::Changed,
-            (_, Self::Unchanged) => self,
             (current, _) => current,
         }
     }
