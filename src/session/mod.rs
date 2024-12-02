@@ -4,8 +4,9 @@ pub mod key;
 pub mod middleware;
 pub mod state;
 
-use std::collections::HashMap;
-
+use std::{collections::HashMap, convert::Infallible, sync::Arc};
+use axum::{async_trait, http::StatusCode};
+use axum_core::{extract::FromRequestParts, response::{IntoResponse, IntoResponseParts, ResponseParts}};
 use key::SessionKey;
 use state::{SessionState, Transition};
 
@@ -106,5 +107,52 @@ impl Session {
         self,
     ) -> (SessionKey, SessionState, HashMap<String, serde_json::Value>) {
         (self.key, self.state, self.data)
+    }
+}
+
+impl IntoResponseParts for Session {
+    type Error = Infallible;
+
+    fn into_response_parts(
+        self,
+        mut res: ResponseParts,
+    ) -> Result<axum::response::ResponseParts, Self::Error> {
+        let _ = res.extensions_mut().insert(Arc::new(self));
+        Ok(res)
+    }
+}
+
+impl IntoResponse for Session {
+    fn into_response(self) -> axum_core::response::Response {
+        (self, ()).into_response()
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Session extension is missing")]
+pub struct MissingSessionExtension;
+
+impl IntoResponse for MissingSessionExtension {
+    fn into_response(self) -> axum::response::Response {
+        (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
+    }
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for Session
+where
+    S: Send + Sync + 'static,
+{
+    type Rejection = MissingSessionExtension;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _: &S,
+    ) -> Result<Self, Self::Rejection> {
+        parts
+            .extensions
+            .get::<Self>()
+            .cloned()
+            .ok_or(MissingSessionExtension)
     }
 }

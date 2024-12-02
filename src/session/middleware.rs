@@ -10,6 +10,8 @@ use std::{
 use tower_layer::Layer;
 use tower_service::Service;
 
+use crate::Session;
+
 use super::driver::SessionDriver;
 
 #[derive(Debug, Clone)]
@@ -83,7 +85,16 @@ where
             let key = try_into_response!(driver.init().await);
             println!("session key before response: {}", key);
 
-            let response = try_into_response!(ready_inner.call(req).await);
+            let mut response = try_into_response!(ready_inner.call(req).await);
+
+            let extension = response.extensions_mut().remove::<Session>();
+
+            if let Some(session) = extension {
+                let (key, state, data) = session.into_parts();
+                println!("session key after response: {}", key);
+                println!("session state after response: {:?}", state);
+                println!("session data after response: {:?}", data);
+            }
 
             response
         });

@@ -5,8 +5,9 @@ use tokio::net::TcpListener;
 
 pub mod session;
 
-async fn handler() -> &'static str {
-    "Hello, world!"
+async fn handler(session: Session) -> (Session, &'static str) {
+    let session = session.insert("hello", "world");
+    (session, "Hello, world!")
 }
 
 #[tokio::main]
