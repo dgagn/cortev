@@ -1,5 +1,7 @@
-use std::convert::Infallible;
+use core::fmt;
+use std::{convert::Infallible, future::Future, pin::Pin, task::{Context, Poll}};
 
+use axum::response::Response;
 use axum_core::{extract, response::IntoResponse};
 use futures::future::BoxFuture;
 use tower_layer::Layer;
@@ -42,7 +44,7 @@ macro_rules! try_or_response {
     ($result:expr) => {
         match $result {
             Ok(value) => value,
-            Err(err) => return Ok(err.into_response()),
+            Err(err) => return err.into_response(),
         }
     };
 }
@@ -55,9 +57,9 @@ where
     S::Error: IntoResponse,
     S::Response: IntoResponse,
 {
-    type Response = S::Response;
+    type Response = Response;
     type Error = Infallible;
-    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
+    type Future = ResponseFuture;
 
     fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
@@ -68,12 +70,35 @@ where
         let mut ready_inner = std::mem::replace(&mut self.inner, not_ready_inner);
 
         let driver = self.driver.clone();
-        Box::pin(async move {
+        let future = Box::pin(async move {
             let key = try_or_response!(driver.init().await);
             println!("session key before response: {}", key);
 
             let response = try_or_response!(ready_inner.call(req).await);
-            Ok(response)
-        })
+
+            response
+        });
+
+        ResponseFuture { 
+            inner: future
+        }
+    }
+}
+
+pub struct ResponseFuture {
+    inner: BoxFuture<'static, Response>,
+}
+
+impl Future for ResponseFuture {
+    type Output = Result<Response, Infallible>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.inner.as_mut().poll(cx).map(Ok)
+    }
+}
+
+impl fmt::Debug for ResponseFuture {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ResponseFuture").finish()
     }
 }
