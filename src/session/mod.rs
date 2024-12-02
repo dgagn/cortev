@@ -13,7 +13,7 @@ use state::{SessionState, Transition};
 pub struct Session {
     key: SessionKey,
     state: SessionState,
-    data: HashMap<String, serde_json::Value>,
+    data: HashMap<String, serde_json::Value>
 }
 
 impl Session {
