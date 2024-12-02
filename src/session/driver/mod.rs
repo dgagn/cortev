@@ -13,14 +13,14 @@ pub enum SessionError {
 }
 
 pub trait SessionDriver {
-    fn read(&self, id: &str) -> impl Future<Output = SessionResult<Session>> + Send;
+    fn read(&self, key: &str) -> impl Future<Output = SessionResult<Session>> + Send;
 }
 
 pub struct RedisDriver {
 }
 
 impl SessionDriver for RedisDriver {
-    async fn read(&self, id: &str) -> SessionResult<Session> {
+    async fn read(&self, key: &str) -> SessionResult<Session> {
         todo!()
     }
 }

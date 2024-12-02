@@ -38,7 +38,7 @@ impl Transition<SessionState> for SessionState {
 
 #[derive(Debug)]
 pub struct Session {
-    id: String,
+    key: String,
     state: SessionState,
     data: HashMap<String, serde_json::Value>,
 }
@@ -47,15 +47,15 @@ pub struct WithData;
 pub struct WithoutData;
 
 pub struct SessionBuilder<State = WithoutData> {
-    id: String,
+    key: String,
     data: Option<HashMap<String, serde_json::Value>>,
     state: std::marker::PhantomData<State>,
 }
 
 impl SessionBuilder {
-    pub fn new(id: String) -> Self {
+    pub fn new(key: String) -> Self {
         Self {
-            id,
+            key,
             data: None,
             state: Default::default(),
         }
@@ -65,7 +65,7 @@ impl SessionBuilder {
 impl SessionBuilder<WithoutData> {
     pub fn with_data(self, data: HashMap<String, serde_json::Value>) -> SessionBuilder<WithData> {
         SessionBuilder {
-            id: self.id,
+            key: self.key,
             data: Some(data),
             state: std::marker::PhantomData::<WithData>,
         }
@@ -75,7 +75,7 @@ impl SessionBuilder<WithoutData> {
 impl SessionBuilder<WithData> {
     pub fn build(self) -> Session {
         Session {
-            id: self.id,
+            key: self.key,
             // Safe because `WithData` guarantees `data` is set
             data: self.data.unwrap(),
             state: SessionState::Unchanged,
@@ -84,15 +84,15 @@ impl SessionBuilder<WithData> {
 }
 
 impl Session {
-    pub fn builder<K>(id: K) -> SessionBuilder
+    pub fn builder<K>(key: K) -> SessionBuilder
     where
         K: Into<String>,
     {
-        SessionBuilder::new(id.into())
+        SessionBuilder::new(key.into())
     }
 
-    pub fn id(&self) -> &str {
-        &self.id
+    pub fn key(&self) -> &str {
+        &self.key
     }
 
     pub fn get<K, V>(&self, key: K) -> Option<V>
@@ -177,6 +177,6 @@ impl Session {
     }
 
     pub(crate) fn into_parts(self) -> (String, SessionState, HashMap<String, serde_json::Value>) {
-        (self.id, self.state, self.data)
+        (self.key, self.state, self.data)
     }
 }
