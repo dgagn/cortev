@@ -1,27 +1,27 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use dashmap::DashMap;
 
 use crate::Session;
 
-use super::{SessionData, SessionDriver, SessionError, SessionResult};
+use super::{SessionData, SessionStore, SessionError, SessionManager, SessionResult};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MemoryDriver {
-    sessions: DashMap<String, Session>,
+    sessions: Arc<DashMap<String, Session>>,
     ttl: Duration,
 }
 
 impl Default for MemoryDriver {
     fn default() -> Self {
         Self {
-            sessions: DashMap::new(),
+            sessions: Arc::new(DashMap::new()),
             ttl: Duration::from_secs(120 * 60),
         }
     }
 }
 
-impl SessionDriver for MemoryDriver {
+impl SessionStore for MemoryDriver {
     async fn read(&self, key: &str) -> SessionResult<Session> {
         let session = self.sessions.get(key);
         let session = session.map(|session| {
@@ -30,8 +30,7 @@ impl SessionDriver for MemoryDriver {
         Ok(session)
     }
 
-    async fn write(&self, key: &str, data: SessionData) -> SessionResult<String> {
-        let key = key.to_string();
+    async fn write(&self, key: String, data: SessionData) -> SessionResult<String> {
         let session = Session::builder(key.clone())
             .with_data(data)
             .build();
@@ -49,3 +48,5 @@ impl SessionDriver for MemoryDriver {
         self.ttl
     }
 }
+
+impl SessionManager for MemoryDriver {}
