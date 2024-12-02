@@ -2,5 +2,8 @@
 name = "cortev"
 version = "0.1.0"
 edition = "2021"
-
-[dependencies]
+authors = ["Dany Gagnon <admin@ovior.ca>"]
+description = "Web framework built on top of axum"
+license = "MIT"
+repository = "https://github.com/cortev/framework"
+readme = "README.md"
