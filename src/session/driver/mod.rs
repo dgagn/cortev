@@ -4,7 +4,7 @@ use anyhow::Context;
 use axum::{http::StatusCode, response::IntoResponse};
 use rand::distributions::{Alphanumeric, DistString};
 
-use super::Session;
+use super::{key::SessionKey, Session};
 
 pub(crate) type SessionData = HashMap<String, serde_json::Value>;
 
@@ -47,29 +47,29 @@ impl IntoResponse for SessionError {
 }
 
 pub trait SessionDriver: Sync {
-    fn read(&self, key: &str) -> impl Future<Output = SessionResult<Session>> + Send;
-    fn write(&self, key: String, data: SessionData) -> impl Future<Output = SessionResult<String>> + Send;
-    fn destroy(&self, key: &str) -> impl Future<Output = SessionResult<()>> + Send;
+    fn read(&self, key: SessionKey) -> impl Future<Output = SessionResult<Session>> + Send;
+    fn write(&self, key: SessionKey, data: SessionData) -> impl Future<Output = SessionResult<SessionKey>> + Send;
+    fn destroy(&self, key: SessionKey) -> impl Future<Output = SessionResult<()>> + Send;
     fn ttl(&self) -> Duration;
 
-    fn create(&self, data: SessionData) -> impl Future<Output = SessionResult<String>> + Send {
+    fn create(&self, data: SessionData) -> impl Future<Output = SessionResult<SessionKey>> + Send {
         let key = generate_random_key();
-        self.write(key, data)
+        self.write(key.into(), data)
     }
 
-    fn init(&self) -> impl Future<Output = SessionResult<String>> + Send {
+    fn init(&self) -> impl Future<Output = SessionResult<SessionKey>> + Send {
         self.create(SessionData::default())
     }
 
-    fn regenerate(&self, key: &str, data: SessionData) -> impl Future<Output = SessionResult<String>> + Send {
+    fn regenerate(&self, key: SessionKey, data: SessionData) -> impl Future<Output = SessionResult<SessionKey>> + Send {
         async move {
             let session_key = self.create(data).await?;
-            self.destroy(key).await?;
+            self.destroy(key.into()).await?;
             Ok(session_key)
         }
     }
 
-    fn invalidate(&self, key: &str) -> impl Future<Output = SessionResult<String>> + Send {
+    fn invalidate(&self, key: SessionKey) -> impl Future<Output = SessionResult<SessionKey>> + Send {
         async move {
             self.destroy(key).await?;
             self.init().await

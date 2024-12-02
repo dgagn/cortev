@@ -2,13 +2,13 @@ use std::{sync::Arc, time::Duration};
 
 use dashmap::DashMap;
 
-use crate::Session;
+use crate::{session::key::SessionKey, Session};
 
 use super::{SessionData, SessionDriver, SessionError, SessionResult};
 
 #[derive(Debug, Clone)]
 pub struct MemoryDriver {
-    sessions: Arc<DashMap<String, Session>>,
+    sessions: Arc<DashMap<SessionKey, Session>>,
     ttl: Duration,
 }
 
@@ -22,15 +22,15 @@ impl Default for MemoryDriver {
 }
 
 impl SessionDriver for MemoryDriver {
-    async fn read(&self, key: &str) -> SessionResult<Session> {
-        let session = self.sessions.get(key);
+    async fn read(&self, key: SessionKey) -> SessionResult<Session> {
+        let session = self.sessions.get(&key);
         let session = session.map(|session| {
             session.value().to_owned()
         }).ok_or(SessionError::NotFound)?;
         Ok(session)
     }
 
-    async fn write(&self, key: String, data: SessionData) -> SessionResult<String> {
+    async fn write(&self, key: SessionKey, data: SessionData) -> SessionResult<SessionKey> {
         let session = Session::builder(key.clone())
             .with_data(data)
             .build();
@@ -39,8 +39,8 @@ impl SessionDriver for MemoryDriver {
         Ok(key)
     }
 
-    async fn destroy(&self, key: &str) -> SessionResult<()> {
-        self.sessions.remove(key);
+    async fn destroy(&self, key: SessionKey) -> SessionResult<()> {
+        self.sessions.remove(&key);
         Ok(())
     }
 

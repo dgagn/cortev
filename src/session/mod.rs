@@ -1,9 +1,10 @@
-#![allow(dead_code)]
-
 pub mod middleware;
 pub mod driver;
+pub mod key;
 
 use std::collections::HashMap;
+
+use key::SessionKey;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum SessionState {
@@ -38,7 +39,7 @@ impl Transition<SessionState> for SessionState {
 
 #[derive(Debug, Clone)]
 pub struct Session {
-    key: String,
+    key: SessionKey,
     state: SessionState,
     data: HashMap<String, serde_json::Value>,
 }
@@ -47,15 +48,15 @@ pub struct WithData;
 pub struct WithoutData;
 
 pub struct SessionBuilder<State = WithoutData> {
-    key: String,
+    key: SessionKey,
     data: Option<HashMap<String, serde_json::Value>>,
     state: std::marker::PhantomData<State>,
 }
 
 impl SessionBuilder {
-    pub fn new(key: String) -> Self {
+    pub fn new<K: Into<SessionKey>>(key: K) -> Self {
         Self {
-            key,
+            key: key.into(),
             data: None,
             state: Default::default(),
         }
@@ -86,7 +87,7 @@ impl SessionBuilder<WithData> {
 impl Session {
     pub fn builder<K>(key: K) -> SessionBuilder
     where
-        K: Into<String>,
+        K: Into<SessionKey>,
     {
         SessionBuilder::new(key.into())
     }
@@ -176,7 +177,7 @@ impl Session {
         self.increment_by(key, -decrementor)
     }
 
-    pub(crate) fn into_parts(self) -> (String, SessionState, HashMap<String, serde_json::Value>) {
+    pub(crate) fn into_parts(self) -> (SessionKey, SessionState, HashMap<String, serde_json::Value>) {
         (self.key, self.state, self.data)
     }
 }
