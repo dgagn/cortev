@@ -28,3 +28,4 @@ workspace = true
 [features]
 default = []
 memory = ["dep:dashmap"]
+redis = []

@@ -16,7 +16,7 @@ workspace = true
 
 
 [features]
-default = ["session"]
+default = []
 
 session = ["dep:cortev-session"]
 session-memory = ["session", "cortev-session?/memory"]

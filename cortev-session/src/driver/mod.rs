@@ -8,10 +8,12 @@ use super::{key::SessionKey, Session};
 
 pub(crate) type SessionData = HashMap<String, serde_json::Value>;
 
+#[cfg(feature = "redis")]
 trait ToJson {
     fn to_json(&self) -> SessionResult<String>;
 }
 
+#[cfg(feature = "redis")]
 impl ToJson for SessionData {
     fn to_json(&self) -> SessionResult<String> {
         let value = serde_json::to_string(&self).context("failed to serialize session data")?;
