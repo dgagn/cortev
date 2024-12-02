@@ -1,10 +1,11 @@
 use std::convert::Infallible;
 
 use axum_core::{extract, response::IntoResponse};
+use futures::future::BoxFuture;
 use tower_layer::Layer;
 use tower_service::Service;
 
-use super::driver::{SessionStore, SessionManager};
+use super::store::{SessionStore, SessionManager};
 
 #[derive(Debug, Clone)]
 pub struct SessionMiddleware<S, D: SessionManager> {
@@ -56,7 +57,7 @@ where
 {
     type Response = S::Response;
     type Error = Infallible;
-    type Future = impl std::future::Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
+    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
@@ -67,12 +68,12 @@ where
         let mut ready_inner = std::mem::replace(&mut self.inner, not_ready_inner);
 
         let driver = self.driver.clone();
-        async move {
+        Box::pin(async move {
             let key = try_or_response!(driver.init().await);
             println!("session key before response: {}", key);
 
             let response = try_or_response!(ready_inner.call(req).await);
             Ok(response)
-        }
+        })
     }
 }

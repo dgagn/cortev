@@ -1,7 +1,5 @@
-#![feature(impl_trait_in_assoc_type)]
-
 use axum::{routing, Router};
-use session::{driver::memory::MemoryDriver, middleware::SessionLayer};
+use session::{store::memory::MemoryDriver, middleware::SessionLayer};
 pub use session::Session;
 use tokio::net::TcpListener;
 
