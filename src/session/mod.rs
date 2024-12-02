@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 mod middleware;
-mod driver;
+pub mod driver;
 
 use std::collections::HashMap;
 
@@ -36,7 +36,7 @@ impl Transition<SessionState> for SessionState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Session {
     key: String,
     state: SessionState,
