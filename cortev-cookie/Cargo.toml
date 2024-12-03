@@ -1,0 +1,11 @@
+[package]
+name = "cortev-cookie"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cookie = { version = "0.18.1", features = ["private", "percent-encode", "signed"] }
+http = "1.1.0"
+
+[lints]
+workspace = true
