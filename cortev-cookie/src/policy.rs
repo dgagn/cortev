@@ -7,24 +7,16 @@ pub enum EncryptionCookiePolicy {
 }
 
 impl EncryptionCookiePolicy {
-    fn maybe_cookie_kind(&self, key: CookieKey) -> Option<CookieKind> {
+    pub fn cookie_kind<T: Into<CookieKey>>(&self, key: T) -> CookieKind {
+        let key = key.into();
         match self {
-            EncryptionCookiePolicy::Allowlist(cookies) => cookies.get(&key),
+            EncryptionCookiePolicy::Allowlist(cookies) => {
+                cookies.get(&key).unwrap_or(CookieKind::Normal)
+            }
             EncryptionCookiePolicy::Denylist(cookies) => {
-                cookies.get(&key).or(Some(CookieKind::Private))
+                cookies.get(&key).unwrap_or(CookieKind::Private)
             }
         }
-    }
-
-    pub fn is_signed<T: Into<CookieKey>>(&self, key: T) -> bool {
-        matches!(self.maybe_cookie_kind(key.into()), Some(CookieKind::Signed))
-    }
-
-    pub fn is_private<T: Into<CookieKey>>(&self, key: T) -> bool {
-        matches!(
-            self.maybe_cookie_kind(key.into()),
-            Some(CookieKind::Private)
-        )
     }
 }
 
@@ -44,13 +36,14 @@ mod tests {
         let mut cookies = CookieMap::new();
         cookies.insert("session", CookieKind::Private);
         cookies.insert("csrftoken", CookieKind::Signed);
+        cookies.insert("theme", CookieKind::Normal);
 
         let policy = EncryptionCookiePolicy::Allowlist(cookies);
 
-        assert!(policy.is_private("session"));
-        assert!(!policy.is_private("csrftoken"));
-        assert!(!policy.is_private("other"));
-        assert!(policy.is_signed("csrftoken"));
+        assert_eq!(policy.cookie_kind("session"), CookieKind::Private);
+        assert_eq!(policy.cookie_kind("csrftoken"), CookieKind::Signed);
+        assert_eq!(policy.cookie_kind("theme"), CookieKind::Normal);
+        assert_eq!(policy.cookie_kind("other"), CookieKind::Normal);
     }
 
     #[test]
@@ -60,10 +53,8 @@ mod tests {
 
         let policy = EncryptionCookiePolicy::Denylist(cookies);
 
-        assert!(!policy.is_private("theme"));
-        assert!(!policy.is_signed("theme"));
-
-        assert!(policy.is_private("session"));
-        assert!(policy.is_private("csrftoken"));
+        assert_eq!(policy.cookie_kind("session"), CookieKind::Private);
+        assert_eq!(policy.cookie_kind("csrftoken"), CookieKind::Private);
+        assert_eq!(policy.cookie_kind("theme"), CookieKind::Normal);
     }
 }

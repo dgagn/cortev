@@ -67,13 +67,7 @@ pub fn typed_cookies_from_request<'a>(
     policy: &'a EncryptionCookiePolicy,
 ) -> impl Iterator<Item = TypedCookie<'static>> + 'a {
     cookies_from_request(headers).map(move |cookie| {
-        let kind = if policy.is_private(cookie.name().to_owned()) {
-            CookieKind::Private
-        } else if policy.is_signed(cookie.name().to_owned()) {
-            CookieKind::Signed
-        } else {
-            CookieKind::Normal
-        };
+        let kind = policy.cookie_kind(cookie.name().to_owned());
         TypedCookie { cookie, kind }
     })
 }
