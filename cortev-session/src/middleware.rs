@@ -13,7 +13,7 @@ use tower_service::Service;
 use crate::{
     builder::BuildSession,
     driver::{SessionData, SessionError},
-    Session,
+    Session, SessionState,
 };
 
 use super::driver::SessionDriver;
@@ -135,20 +135,28 @@ where
                 Session::builder(key).with_data(data).build()
             };
 
+            let session_key = session.key.clone();
+
             req.extensions_mut().insert(session);
 
             let mut response = try_into_response!(ready_inner.call(req).await);
 
             let extension = response.extensions_mut().remove::<Session>();
 
-            if let Some(session) = extension {
+            let session_key = if let Some(session) = extension {
                 let (key, state, data) = session.into_parts();
-                println!("session key after response: {}", key);
-                println!("session state after response: {:?}", state);
-                println!("session data after response: {:?}", data);
+                let session_key = match state {
+                    SessionState::Changed => driver.write(key, data).await,
+                    SessionState::Regenerated => driver.regenerate(key, data).await,
+                    SessionState::Invalidated => driver.invalidate(key).await,
+                    SessionState::Unchanged => Ok(key),
+                };
+                try_into_response!(session_key)
             } else {
-                println!("session is unchanged");
-            }
+                session_key
+            };
+
+            // todo: Change set the cookie, but for now
 
             response
         });

@@ -68,6 +68,10 @@ pub trait SessionDriver: Sync {
         self.write(key.into(), data)
     }
 
+    fn init(&self) -> impl Future<Output = SessionResult<SessionKey>> + Send {
+        self.create(SessionData::default())
+    }
+
     fn regenerate(
         &self,
         key: SessionKey,

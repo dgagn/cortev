@@ -30,7 +30,15 @@ impl CookieJar {
 
     #[must_use]
     pub fn insert(mut self, cookie: Cookie<'static>) -> Self {
-        self.jar.add(cookie);
+        let name = cookie.name().to_owned();
+        println!("Cookie name: {}", name);
+        let kind = self.encryption_policy.cookie_kind(name.clone());
+        println!("Cookie kind: {:?}", kind);
+        match kind {
+            CookieKind::Normal => self.jar.add(cookie),
+            CookieKind::Signed => self.jar.signed_mut(&self.key).add(cookie),
+            CookieKind::Private => self.jar.private_mut(&self.key).add(cookie),
+        };
         self
     }
 
@@ -38,8 +46,18 @@ impl CookieJar {
         let name_ref: Cow<'_, str> = name.into();
         match self.encryption_policy.cookie_kind(name_ref.clone()) {
             CookieKind::Normal => self.jar.get(name_ref.as_ref()).cloned(),
-            CookieKind::Signed => self.jar.signed(&self.key).get(name_ref.as_ref()),
-            CookieKind::Private => self.jar.private(&self.key).get(name_ref.as_ref()),
+            CookieKind::Signed => {
+                let signed_jar = self.jar.signed(&self.key);
+                signed_jar
+                    .get(name_ref.as_ref())
+                    .and_then(|cookie| signed_jar.verify(cookie))
+            }
+            CookieKind::Private => {
+                let private_jar = self.jar.private(&self.key);
+                private_jar
+                    .get(name_ref.as_ref())
+                    .and_then(|cookie| private_jar.decrypt(cookie))
+            }
         }
     }
 

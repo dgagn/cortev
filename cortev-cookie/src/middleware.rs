@@ -4,10 +4,11 @@ use std::{
 };
 
 use axum_core::{
-    extract,
-    response::{IntoResponse, Response},
+    extract::{self, FromRequestParts},
+    response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
 };
 use futures::FutureExt;
+use http::{header, request::Parts, HeaderMap};
 use tower_layer::Layer;
 use tower_service::Service;
 
@@ -74,10 +75,50 @@ where
                 Ok(response) => response,
                 Err(err) => err.into_response(),
             };
+            // todo: add all cookies to the response
             value
                 .headers_mut()
                 .insert(http::header::AUTHORIZATION, "bob".parse().unwrap());
             Ok(value)
         })
+    }
+}
+
+#[async_trait::async_trait]
+impl<S> FromRequestParts<S> for CookieJar
+where
+    S: Send + Sync,
+{
+    type Rejection = Infallible;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        Ok(parts
+            .extensions
+            .get::<CookieJar>()
+            .cloned()
+            .expect("the cookie jar is missing"))
+    }
+}
+
+impl IntoResponseParts for CookieJar {
+    type Error = Infallible;
+
+    fn into_response_parts(self, mut res: ResponseParts) -> Result<ResponseParts, Self::Error> {
+        set_cookies(self.jar, res.headers_mut());
+        Ok(res)
+    }
+}
+
+impl IntoResponse for CookieJar {
+    fn into_response(self) -> Response {
+        (self, ()).into_response()
+    }
+}
+
+fn set_cookies(jar: cookie::CookieJar, headers: &mut HeaderMap) {
+    for cookie in jar.delta() {
+        if let Ok(header_value) = cookie.encoded().to_string().parse() {
+            headers.append(header::SET_COOKIE, header_value);
+        }
     }
 }
