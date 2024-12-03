@@ -84,7 +84,6 @@ pub fn cookies_from_request(headers: &HeaderMap) -> impl Iterator<Item = Cookie<
 
 #[cfg(test)]
 mod tests {
-    #![allow(unused_imports)]
     use super::*;
 
     #[test]
