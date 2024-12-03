@@ -27,3 +27,58 @@ impl Transition<SessionState> for SessionState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_transition() {
+        let state = SessionState::Unchanged;
+        assert_eq!(
+            state.transition(SessionState::Changed),
+            SessionState::Changed
+        );
+        assert_eq!(
+            state.transition(SessionState::Regenerated),
+            SessionState::Regenerated
+        );
+        let state = SessionState::Changed;
+
+        assert_eq!(
+            state.transition(SessionState::Unchanged),
+            SessionState::Changed
+        );
+        assert_eq!(
+            state.transition(SessionState::Regenerated),
+            SessionState::Regenerated
+        );
+
+        let state = SessionState::Regenerated;
+        assert_eq!(
+            state.transition(SessionState::Unchanged),
+            SessionState::Regenerated
+        );
+
+        assert_eq!(
+            state.transition(SessionState::Changed),
+            SessionState::Regenerated
+        );
+
+        let state = SessionState::Invalidated;
+        assert_eq!(
+            state.transition(SessionState::Unchanged),
+            SessionState::Invalidated
+        );
+
+        assert_eq!(
+            state.transition(SessionState::Changed),
+            SessionState::Invalidated
+        );
+
+        assert_eq!(
+            state.transition(SessionState::Regenerated),
+            SessionState::Regenerated
+        );
+    }
+}
