@@ -81,3 +81,9 @@ pub fn cookies_from_request(headers: &HeaderMap) -> impl Iterator<Item = Cookie<
         .flat_map(|value| value.split(';'))
         .filter_map(|cookie| Cookie::parse_encoded(cookie.to_owned()).ok())
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(unused_imports)]
+    use super::*;
+}
