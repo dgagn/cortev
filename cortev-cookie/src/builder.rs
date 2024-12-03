@@ -25,8 +25,8 @@ impl CookieJarBuilder {
         crate::CookieJar {
             jar: self.jar,
             // Unwrapping is safe because we know that the key is always present
-            key: self.key,
-            encryption_policy: self.encryption_policy.unwrap_or_default(),
+            key: self.key.into(),
+            encryption_policy: self.encryption_policy.unwrap_or_default().into(),
         }
     }
 }
@@ -40,7 +40,10 @@ mod tests {
         let key = cookie::Key::generate();
         let builder = CookieJarBuilder::new(key);
         let jar = builder.build();
-        assert_eq!(jar.encryption_policy, EncryptionCookiePolicy::default());
+        assert_eq!(
+            jar.encryption_policy,
+            EncryptionCookiePolicy::default().into()
+        );
     }
 
     #[test]
@@ -49,6 +52,6 @@ mod tests {
         let policy = EncryptionCookiePolicy::Exclusion(CookieMap::new());
         let builder = CookieJarBuilder::new(key).with_encryption_policy(policy.clone());
         let jar = builder.build();
-        assert_eq!(jar.encryption_policy, policy);
+        assert_eq!(jar.encryption_policy, policy.into());
     }
 }

@@ -4,8 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+axum-core = "0.4.5"
 cookie = { version = "0.18.1", features = ["private", "percent-encode", "signed"] }
+futures = "0.3.31"
 http = "1.1.0"
+pin-project-lite = "0.2.15"
+tower-layer = "0.3.3"
+tower-service = "0.3.3"
 
 [lints]
 workspace = true

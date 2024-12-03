@@ -1,10 +1,11 @@
+use std::sync::Arc;
+
 use cookie::Cookie;
 use http::{header, HeaderMap};
 
 mod builder;
 mod kind;
 mod map;
-mod middleware;
 mod policy;
 
 pub use kind::CookieKind;
@@ -12,11 +13,13 @@ pub use map::CookieKey;
 pub use map::CookieMap;
 pub use policy::EncryptionCookiePolicy;
 
-#[derive(Debug)]
+pub mod middleware;
+
+#[derive(Debug, Clone)]
 pub struct CookieJar {
     jar: cookie::CookieJar,
-    key: cookie::Key,
-    encryption_policy: EncryptionCookiePolicy,
+    key: Arc<cookie::Key>,
+    encryption_policy: Arc<EncryptionCookiePolicy>,
 }
 
 impl CookieJar {
@@ -24,7 +27,7 @@ impl CookieJar {
         builder::CookieJarBuilder::new(key)
     }
 
-    pub fn from_headers(mut self, headers: &HeaderMap) -> Self {
+    pub fn from_headers(&mut self, headers: &HeaderMap) -> Self {
         for cookie in typed_cookies_from_request(headers, &self.encryption_policy) {
             match cookie.kind() {
                 CookieKind::Normal => {
@@ -42,7 +45,12 @@ impl CookieJar {
                 }
             }
         }
-        self
+        Self {
+            // Hashsets are empty so cheap clone
+            jar: self.jar.clone(),
+            key: self.key.clone(),
+            encryption_policy: self.encryption_policy.clone(),
+        }
     }
 }
 
@@ -134,10 +142,10 @@ mod tests {
     fn test_cookie_jar() {
         let key = cookie::Key::generate();
         let policy = EncryptionCookiePolicy::default();
-        let jar = CookieJar {
+        let mut jar = CookieJar {
             jar: cookie::CookieJar::new(),
-            key,
-            encryption_policy: policy,
+            key: key.into(),
+            encryption_policy: policy.into(),
         };
 
         let mut headers = HeaderMap::new();
@@ -166,10 +174,10 @@ mod tests {
 
         let id = create_private_cookie_value(&key, "id", "1234");
 
-        let jar = CookieJar {
+        let mut jar = CookieJar {
             jar: cookie::CookieJar::new(),
-            key: key.clone(),
-            encryption_policy: policy,
+            key: key.clone().into(),
+            encryption_policy: policy.into(),
         };
 
         let mut headers = HeaderMap::new();
@@ -220,10 +228,10 @@ mod tests {
 
         let id = create_signed_cookie_value(&key, "id", "1234");
 
-        let jar = CookieJar {
+        let mut jar = CookieJar {
             jar: cookie::CookieJar::new(),
-            key: key.clone(),
-            encryption_policy: policy,
+            key: key.clone().into(),
+            encryption_policy: policy.into(),
         };
 
         let mut headers = HeaderMap::new();
