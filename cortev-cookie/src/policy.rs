@@ -2,18 +2,18 @@ use crate::{kind::CookieKind, CookieKey, CookieMap};
 
 #[derive(Debug)]
 pub enum EncryptionCookiePolicy {
-    Allowlist(CookieMap),
-    Denylist(CookieMap),
+    Inclusion(CookieMap),
+    Exclusion(CookieMap),
 }
 
 impl EncryptionCookiePolicy {
     pub fn cookie_kind<T: Into<CookieKey>>(&self, key: T) -> CookieKind {
         let key = key.into();
         match self {
-            EncryptionCookiePolicy::Allowlist(cookies) => {
+            EncryptionCookiePolicy::Inclusion(cookies) => {
                 cookies.get(&key).unwrap_or(CookieKind::Normal)
             }
-            EncryptionCookiePolicy::Denylist(cookies) => {
+            EncryptionCookiePolicy::Exclusion(cookies) => {
                 cookies.get(&key).unwrap_or(CookieKind::Private)
             }
         }
@@ -22,7 +22,7 @@ impl EncryptionCookiePolicy {
 
 impl Default for EncryptionCookiePolicy {
     fn default() -> Self {
-        Self::Allowlist(CookieMap::new())
+        Self::Inclusion(CookieMap::new())
     }
 }
 
@@ -38,7 +38,7 @@ mod tests {
         cookies.insert("csrftoken", CookieKind::Signed);
         cookies.insert("theme", CookieKind::Normal);
 
-        let policy = EncryptionCookiePolicy::Allowlist(cookies);
+        let policy = EncryptionCookiePolicy::Inclusion(cookies);
 
         assert_eq!(policy.cookie_kind("session"), CookieKind::Private);
         assert_eq!(policy.cookie_kind("csrftoken"), CookieKind::Signed);
@@ -51,7 +51,7 @@ mod tests {
         let mut cookies = CookieMap::new();
         cookies.insert("theme", CookieKind::Normal);
 
-        let policy = EncryptionCookiePolicy::Denylist(cookies);
+        let policy = EncryptionCookiePolicy::Exclusion(cookies);
 
         assert_eq!(policy.cookie_kind("session"), CookieKind::Private);
         assert_eq!(policy.cookie_kind("csrftoken"), CookieKind::Private);

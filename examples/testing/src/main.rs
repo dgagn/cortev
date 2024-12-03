@@ -21,7 +21,7 @@ async fn main() {
 
     let mut encrypted_cookies = CookieMap::new();
     encrypted_cookies.insert("id", CookieKind::Private);
-    let encryption_policy = EncryptionCookiePolicy::Allowlist(encrypted_cookies);
+    let encryption_policy = EncryptionCookiePolicy::Inclusion(encrypted_cookies);
     let key = Key::generate();
     let jar = CookieJar::builder(key)
         .with_encryption_policy(encryption_policy)
