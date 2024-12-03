@@ -203,6 +203,8 @@ dependencies = [
  "aes-gcm",
  "base64",
  "hkdf",
+ "hmac",
+ "percent-encoding",
  "rand",
  "sha2",
  "subtle",
@@ -214,7 +216,16 @@ dependencies = [
 name = "cortev"
 version = "0.1.0"
 dependencies = [
+ "cortev-cookie",
  "cortev-session",
+]
+
+[[package]]
+name = "cortev-cookie"
+version = "0.1.0"
+dependencies = [
+ "cookie",
+ "http",
 ]
 
 [[package]]

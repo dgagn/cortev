@@ -1,8 +1,16 @@
 use axum::{routing, Router};
+use cookie::Key;
 pub use cortev::session::Session;
-use cortev::session::{
-    driver::MemoryDriver,
-    middleware::{SessionKind, SessionLayer},
+use cortev::{
+    cookie::{
+        key::CookieKind,
+        policy::{CookieKeyMap, EncryptionCookiePolicy},
+        CookieJar,
+    },
+    session::{
+        driver::MemoryDriver,
+        middleware::{SessionKind, SessionLayer},
+    },
 };
 use tokio::net::TcpListener;
 
@@ -14,6 +22,17 @@ async fn handler(session: Session) -> (Session, &'static str) {
 #[tokio::main]
 async fn main() {
     let driver = MemoryDriver::default();
+
+    let mut encrypted_cookies = CookieKeyMap::new();
+    encrypted_cookies.insert("id", CookieKind::Private);
+    let encryption_policy = EncryptionCookiePolicy::Whitelist(encrypted_cookies);
+    let key = Key::generate();
+    let jar = CookieJar::builder(key)
+        .with_encryption_policy(encryption_policy)
+        .build();
+
+    // let cookie_layer = CookieLayer::new(encrypted_cookies);
+
     let kind = SessionKind::Cookie("id");
     let session_layer = SessionLayer::new(driver, kind);
 

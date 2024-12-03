@@ -12,7 +12,7 @@ pub enum SessionState {
 }
 
 /// Defines a transition mechanism for states.
-pub trait Transition<T> {
+pub(crate) trait Transition<T> {
     /// Transitions from the current state to a new state.
     fn transition(self, new_state: T) -> T;
 }

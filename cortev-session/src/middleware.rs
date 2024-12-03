@@ -22,7 +22,6 @@ where
     C: Into<Cow<'static, str>>,
 {
     Cookie(C),
-    EncryptedCookie(C, Vec<u8>),
 }
 
 #[derive(Debug, Clone)]
@@ -107,8 +106,7 @@ where
 
             #[allow(unused_variables)]
             let value = match kind {
-                SessionKind::Cookie(_cow) => "",
-                SessionKind::EncryptedCookie(_cow, _) => "",
+                SessionKind::Cookie(id) => "",
             };
             println!("session key before response: {}", key);
 
