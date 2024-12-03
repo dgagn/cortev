@@ -7,7 +7,6 @@ edition = "2021"
 axum = "0.7.9"
 cookie = { version = "0.18.1", features = ["private", "key-expansion"] }
 cortev = { path = "../../cortev", features = ["session-memory"] }
-dhat = "0.3.3"
 tokio = { version = "1.41.1", features = ["full"] }
 
 [lints]

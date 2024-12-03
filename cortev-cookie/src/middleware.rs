@@ -34,7 +34,6 @@ impl<S> Layer<S> for CookieLayer {
     type Service = CookieMidleware<S>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        println!("layer");
         CookieMidleware {
             inner,
             jar: self.jar.clone(),
@@ -66,7 +65,6 @@ where
     }
 
     fn call(&mut self, mut req: extract::Request) -> Self::Future {
-        println!("clone");
         let headers = req.headers();
         let jar = self.jar.from_headers(headers);
         req.extensions_mut().insert(jar);

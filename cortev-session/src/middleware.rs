@@ -10,7 +10,11 @@ use std::{
 use tower_layer::Layer;
 use tower_service::Service;
 
-use crate::{builder::BuildSession, driver::SessionData, Session};
+use crate::{
+    builder::BuildSession,
+    driver::{SessionData, SessionError},
+    Session,
+};
 
 use super::driver::SessionDriver;
 
@@ -102,17 +106,34 @@ where
         let driver = self.driver.clone();
         let kind = self.kind.clone();
         let future = Box::pin(async move {
-            let key = try_into_response!(driver.init().await);
-
-            #[allow(unused_variables)]
-            let value = match kind {
-                SessionKind::Cookie(id) => "",
+            let session_key = match kind {
+                #[cfg(feature = "cookie")]
+                SessionKind::Cookie(id) => req
+                    .extensions()
+                    .get::<cortev_cookie::CookieJar>()
+                    .and_then(|jar| jar.get(id.into())),
+                _ => None,
             };
-            println!("session key before response: {}", key);
 
-            let session = Session::builder("helloworld")
-                .with_data(SessionData::default())
-                .build();
+            let maybe_session = if let Some(cookie) = session_key {
+                let key = cookie.value();
+                let session = match driver.read(key.into()).await {
+                    Ok(session) => Some(session),
+                    Err(SessionError::NotFound) => None,
+                    Err(err) => return err.into_response(),
+                };
+                session
+            } else {
+                None
+            };
+
+            let session = if let Some(session) = maybe_session {
+                session
+            } else {
+                let data = SessionData::default();
+                let key = try_into_response!(driver.create(data.clone()).await);
+                Session::builder(key).with_data(data).build()
+            };
 
             req.extensions_mut().insert(session);
 

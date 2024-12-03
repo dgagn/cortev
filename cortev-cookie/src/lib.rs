@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use cookie::Cookie;
@@ -25,6 +26,21 @@ pub struct CookieJar {
 impl CookieJar {
     pub fn builder(key: cookie::Key) -> builder::CookieJarBuilder {
         builder::CookieJarBuilder::new(key)
+    }
+
+    #[must_use]
+    pub fn insert(mut self, cookie: Cookie<'static>) -> Self {
+        self.jar.add(cookie);
+        self
+    }
+
+    pub fn get<T: Into<Cow<'static, str>>>(&self, name: T) -> Option<Cookie<'static>> {
+        let name_ref: Cow<'_, str> = name.into();
+        match self.encryption_policy.cookie_kind(name_ref.clone()) {
+            CookieKind::Normal => self.jar.get(name_ref.as_ref()).cloned(),
+            CookieKind::Signed => self.jar.signed(&self.key).get(name_ref.as_ref()),
+            CookieKind::Private => self.jar.private(&self.key).get(name_ref.as_ref()),
+        }
     }
 
     pub fn from_headers(&mut self, headers: &HeaderMap) -> Self {

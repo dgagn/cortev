@@ -19,6 +19,7 @@ tower-layer = "0.3.3"
 tower-service = "0.3.3"
 anyhow = "1.0.93"
 thiserror = "2.0.3"
+cortev-cookie = { path = "../cortev-cookie", optional = true }
 
 dashmap = { version = "6.1.0", optional = true }
 
@@ -26,6 +27,7 @@ dashmap = { version = "6.1.0", optional = true }
 workspace = true
 
 [features]
-default = []
+default = ["cookie"]
+cookie = ["cortev-cookie"]
 memory = ["dep:dashmap"]
 redis = []
