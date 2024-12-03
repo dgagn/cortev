@@ -5,11 +5,11 @@ use crate::CookieKind;
 pub type CookieKey = Cow<'static, str>;
 
 #[derive(Debug, Default)]
-pub struct CookieKeyMap {
+pub struct CookieMap {
     data: HashMap<CookieKey, CookieKind>,
 }
 
-impl CookieKeyMap {
+impl CookieMap {
     pub fn new() -> Self {
         Self::default()
     }

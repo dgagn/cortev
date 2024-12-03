@@ -1,9 +1,9 @@
-use crate::{kind::CookieKind, CookieKey, CookieKeyMap};
+use crate::{kind::CookieKind, CookieKey, CookieMap};
 
 #[derive(Debug)]
 pub enum EncryptionCookiePolicy {
-    Allowlist(CookieKeyMap),
-    Denylist(CookieKeyMap),
+    Allowlist(CookieMap),
+    Denylist(CookieMap),
 }
 
 impl EncryptionCookiePolicy {
@@ -21,6 +21,6 @@ impl EncryptionCookiePolicy {
 
 impl Default for EncryptionCookiePolicy {
     fn default() -> Self {
-        Self::Allowlist(CookieKeyMap::new())
+        Self::Allowlist(CookieMap::new())
     }
 }

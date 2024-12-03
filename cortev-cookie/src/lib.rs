@@ -4,11 +4,12 @@ use http::{header, HeaderMap};
 mod builder;
 mod kind;
 mod map;
+mod middleware;
 mod policy;
 
 pub use kind::CookieKind;
 pub use map::CookieKey;
-pub use map::CookieKeyMap;
+pub use map::CookieMap;
 pub use policy::EncryptionCookiePolicy;
 
 #[derive(Debug)]
