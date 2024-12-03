@@ -1,6 +1,7 @@
 use axum_core::{extract, response::IntoResponse, response::Response};
 use core::fmt;
 use std::{
+    borrow::Cow,
     convert::Infallible,
     future::Future,
     pin::Pin,
@@ -16,33 +17,50 @@ use super::driver::SessionDriver;
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 #[derive(Debug, Clone)]
-pub struct SessionMiddleware<S, D: SessionDriver> {
-    inner: S,
-    driver: D,
+pub enum SessionKind<C>
+where
+    C: Into<Cow<'static, str>>,
+{
+    Cookie(C),
+    EncryptedCookie(C, Vec<u8>),
 }
 
-impl<S, D: SessionDriver> SessionMiddleware<S, D> {
-    pub fn new(inner: S, driver: D) -> Self {
-        Self { inner, driver }
+#[derive(Debug, Clone)]
+pub struct SessionMiddleware<S, D: SessionDriver, C: Into<Cow<'static, str>>> {
+    inner: S,
+    driver: D,
+    kind: SessionKind<C>,
+}
+
+impl<S, D: SessionDriver, C: Into<Cow<'static, str>>> SessionMiddleware<S, D, C> {
+    pub fn new(inner: S, driver: D, kind: SessionKind<C>) -> Self {
+        Self {
+            inner,
+            driver,
+            kind,
+        }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct SessionLayer<D: SessionDriver> {
+pub struct SessionLayer<D: SessionDriver, C: Into<Cow<'static, str>>> {
     driver: D,
+    kind: SessionKind<C>,
 }
 
-impl<D: SessionDriver> SessionLayer<D> {
-    pub fn new(driver: D) -> Self {
-        Self { driver }
+impl<D: SessionDriver, C: Into<Cow<'static, str>>> SessionLayer<D, C> {
+    pub fn new(driver: D, kind: SessionKind<C>) -> Self {
+        Self { driver, kind }
     }
 }
 
-impl<S, D: SessionDriver + Clone> Layer<S> for SessionLayer<D> {
-    type Service = SessionMiddleware<S, D>;
+impl<S, D: SessionDriver + Clone, C: Into<Cow<'static, str>> + Clone> Layer<S>
+    for SessionLayer<D, C>
+{
+    type Service = SessionMiddleware<S, D, C>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        SessionMiddleware::new(inner, self.driver.clone())
+        SessionMiddleware::new(inner, self.driver.clone(), self.kind.clone())
     }
 }
 
@@ -55,8 +73,9 @@ macro_rules! try_into_response {
     };
 }
 
-impl<S, D> Service<extract::Request> for SessionMiddleware<S, D>
+impl<S, D, C> Service<extract::Request> for SessionMiddleware<S, D, C>
 where
+    C: Into<Cow<'static, str>> + Clone + Send + 'static,
     S: Service<extract::Request, Response = axum_core::response::Response, Error = Infallible>
         + Clone
         + Send
@@ -82,8 +101,15 @@ where
         let mut ready_inner = std::mem::replace(&mut self.inner, not_ready_inner);
 
         let driver = self.driver.clone();
+        let kind = self.kind.clone();
         let future = Box::pin(async move {
             let key = try_into_response!(driver.init().await);
+
+            #[allow(unused_variables)]
+            let value = match kind {
+                SessionKind::Cookie(_cow) => "",
+                SessionKind::EncryptedCookie(_cow, _) => "",
+            };
             println!("session key before response: {}", key);
 
             let session = Session::builder("helloworld")

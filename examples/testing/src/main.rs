@@ -1,6 +1,9 @@
 use axum::{routing, Router};
 pub use cortev::session::Session;
-use cortev::session::{driver::MemoryDriver, middleware::SessionLayer};
+use cortev::session::{
+    driver::MemoryDriver,
+    middleware::{SessionKind, SessionLayer},
+};
 use tokio::net::TcpListener;
 
 async fn handler(session: Session) -> (Session, &'static str) {
@@ -11,8 +14,8 @@ async fn handler(session: Session) -> (Session, &'static str) {
 #[tokio::main]
 async fn main() {
     let driver = MemoryDriver::default();
-
-    let session_layer = SessionLayer::new(driver);
+    let kind = SessionKind::Cookie("id");
+    let session_layer = SessionLayer::new(driver, kind);
 
     let tcp_listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
 
