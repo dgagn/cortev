@@ -201,4 +201,47 @@ mod tests {
         private_jar.add(Cookie::new(id, value));
         id_encrypted.get(id).unwrap().value().to_owned()
     }
+
+    fn create_signed_cookie_value(
+        key: &cookie::Key,
+        id: &'static str,
+        value: &'static str,
+    ) -> String {
+        let mut id_encrypted = cookie::CookieJar::new();
+        let mut signed_jar = id_encrypted.signed_mut(key);
+        signed_jar.add(Cookie::new(id, value));
+        id_encrypted.get(id).unwrap().value().to_owned()
+    }
+
+    #[test]
+    fn test_signed_cookie_encrypted() {
+        let key = cookie::Key::generate();
+        let mut policy = EncryptionCookiePolicy::default();
+        policy.insert("id", CookieKind::Signed);
+
+        let id = create_signed_cookie_value(&key, "id", "1234");
+
+        let jar = CookieJar {
+            jar: cookie::CookieJar::new(),
+            key: key.clone(),
+            encryption_policy: policy,
+        };
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::COOKIE,
+            format!("id={}; csrftoken=5678; theme=light", id)
+                .parse()
+                .unwrap(),
+        );
+
+        let jar = jar.from_headers(&headers);
+
+        let in_signed = jar.jar.signed(&key).get("id").unwrap();
+        let verify_cookie = jar.jar.signed(&key).verify(in_signed.clone()).unwrap();
+        assert_eq!(verify_cookie.value(), "1234");
+
+        let theme = jar.jar.get("theme").unwrap();
+        assert_eq!(theme.value(), "light");
+    }
 }
