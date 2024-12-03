@@ -4,15 +4,16 @@ use std::{
 };
 
 use axum_core::{
-    extract::{self, FromRequestParts},
+    extract::{self, FromRef, FromRequestParts},
     response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
 };
+use cookie::Key;
 use futures::FutureExt;
 use http::{header, request::Parts, HeaderMap};
 use tower_layer::Layer;
 use tower_service::Service;
 
-use crate::CookieJar;
+use crate::{CookieJar, EncryptionCookiePolicy};
 
 #[derive(Debug, Clone)]
 pub struct CookieMidleware<S> {
@@ -69,18 +70,7 @@ where
         let headers = req.headers();
         let jar = self.jar.from_headers(headers);
         req.extensions_mut().insert(jar);
-
-        self.inner.call(req).map(|future| {
-            let mut value = match future {
-                Ok(response) => response,
-                Err(err) => err.into_response(),
-            };
-            // todo: add all cookies to the response
-            value
-                .headers_mut()
-                .insert(http::header::AUTHORIZATION, "bob".parse().unwrap());
-            Ok(value)
-        })
+        self.inner.call(req).map(|future| future)
     }
 }
 
@@ -91,7 +81,8 @@ where
 {
     type Rejection = Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        // todo: check ways to get from ref from state
         Ok(parts
             .extensions
             .get::<CookieJar>()

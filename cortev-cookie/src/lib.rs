@@ -61,6 +61,19 @@ impl CookieJar {
         }
     }
 
+    pub fn from(
+        headers: &HeaderMap,
+        key: Arc<cookie::Key>,
+        policy: Arc<EncryptionCookiePolicy>,
+    ) -> Self {
+        let mut jar = CookieJar {
+            jar: cookie::CookieJar::new(),
+            key,
+            encryption_policy: policy,
+        };
+        jar.from_headers(headers)
+    }
+
     pub fn from_headers(&mut self, headers: &HeaderMap) -> Self {
         for cookie in typed_cookies_from_request(headers, &self.encryption_policy) {
             match cookie.kind() {
