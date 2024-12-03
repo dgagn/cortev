@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use cookie::Cookie;
+pub use cookie::Cookie;
 use http::{header, HeaderMap};
 
 mod builder;

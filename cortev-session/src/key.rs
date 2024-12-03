@@ -35,6 +35,12 @@ impl From<&str> for SessionKey {
     }
 }
 
+impl From<SessionKey> for String {
+    fn from(val: SessionKey) -> Self {
+        val.0.to_string()
+    }
+}
+
 impl fmt::Display for SessionKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)

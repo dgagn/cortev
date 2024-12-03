@@ -54,23 +54,26 @@ where
     S: Service<extract::Request, Response = Response, Error = Infallible> + Clone,
     S::Error: IntoResponse,
     S::Response: IntoResponse,
+    S::Future: Send + 'static,
 {
     type Response = Response;
     type Error = Infallible;
-    type Future = futures::future::Map<
-        S::Future,
-        fn(Result<S::Response, Self::Error>) -> Result<S::Response, Self::Error>,
-    >;
+    type Future = ResponseFuture<S::Future>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
     fn call(&mut self, mut req: extract::Request) -> Self::Future {
+        println!("CookieMidleware::call");
         let headers = req.headers();
         let jar = self.jar.from_headers(headers);
-        req.extensions_mut().insert(jar);
-        self.inner.call(req).map(|future| future)
+        req.extensions_mut().insert(jar.clone());
+
+        ResponseFuture {
+            future: self.inner.call(req),
+            cookie_jar: jar,
+        }
     }
 }
 
@@ -88,6 +91,41 @@ where
             .get::<CookieJar>()
             .cloned()
             .expect("the cookie jar is missing"))
+    }
+}
+
+pin_project_lite::pin_project! {
+    #[derive(Debug)]
+    pub struct ResponseFuture<F> {
+        #[pin]
+        future: F,
+        cookie_jar: CookieJar,
+    }
+}
+
+impl<F> futures::Future for ResponseFuture<F>
+where
+    F: futures::Future<Output = Result<Response, Infallible>>,
+{
+    type Output = F::Output;
+
+    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        let res = match this.future.poll(cx) {
+            Poll::Ready(output) => output,
+            Poll::Pending => return Poll::Pending,
+        };
+
+        let mut res = match res {
+            Ok(res) => res,
+            Err(err) => err.into_response(),
+        };
+
+        println!("CookieMidleware::end");
+
+        res.extensions_mut().insert(this.cookie_jar.clone());
+
+        Poll::Ready(Ok(res))
     }
 }
 

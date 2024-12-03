@@ -1,5 +1,6 @@
 use axum_core::{extract, response::IntoResponse, response::Response};
 use core::fmt;
+use cortev_cookie::Cookie;
 use std::{
     borrow::Cow,
     convert::Infallible,
@@ -100,6 +101,7 @@ where
     }
 
     fn call(&mut self, mut req: extract::Request) -> Self::Future {
+        println!("SessionMiddleware::call");
         let not_ready_inner = self.inner.clone();
         let mut ready_inner = std::mem::replace(&mut self.inner, not_ready_inner);
 
@@ -108,21 +110,20 @@ where
         let future = Box::pin(async move {
             let session_key = match kind {
                 #[cfg(feature = "cookie")]
-                SessionKind::Cookie(id) => req
+                SessionKind::Cookie(ref id) => req
                     .extensions()
                     .get::<cortev_cookie::CookieJar>()
-                    .and_then(|jar| jar.get(id.into())),
-                _ => None,
+                    .and_then(|jar| jar.get(id.clone())),
             };
 
             let maybe_session = if let Some(cookie) = session_key {
+                println!("found cookie: {:?}", cookie);
                 let key = cookie.value();
-                let session = match driver.read(key.into()).await {
+                match driver.read(key.into()).await {
                     Ok(session) => Some(session),
                     Err(SessionError::NotFound) => None,
                     Err(err) => return err.into_response(),
-                };
-                session
+                }
             } else {
                 None
             };
@@ -134,6 +135,8 @@ where
                 let key = try_into_response!(driver.create(data.clone()).await);
                 Session::builder(key).with_data(data).build()
             };
+
+            println!("session key: {}", session.key);
 
             let session_key = session.key.clone();
 
@@ -157,6 +160,25 @@ where
             };
 
             // todo: Change set the cookie, but for now
+            let cookie = match kind {
+                #[cfg(feature = "cookie")]
+                SessionKind::Cookie(id) => {
+                    let mut cookie = Cookie::new(id, session_key.to_string());
+                    cookie.set_http_only(true);
+                    cookie
+                }
+            };
+
+            let jar = response
+                .extensions()
+                .get::<cortev_cookie::CookieJar>()
+                .cloned();
+
+            if let Some(jar) = jar {
+                println!("found cookie extensions!");
+                let jar = jar.insert(cookie);
+                return (jar, response).into_response();
+            }
 
             response
         });
@@ -173,7 +195,12 @@ impl Future for ResponseFuture {
     type Output = Result<Response, Infallible>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.inner.as_mut().poll(cx).map(Ok)
+        let value = match self.inner.as_mut().poll(cx) {
+            Poll::Ready(value) => Poll::Ready(Ok(value)),
+            Poll::Pending => Poll::Pending,
+        };
+        println!("SessionMiddleware::end");
+        value
     }
 }
 

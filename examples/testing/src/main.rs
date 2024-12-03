@@ -1,4 +1,4 @@
-use axum::{routing, Router};
+use axum::{handler::HandlerWithoutStateExt, routing, Router, ServiceExt};
 use cookie::{Cookie, Key};
 pub use cortev::session::Session;
 use cortev::{
@@ -9,6 +9,7 @@ use cortev::{
     },
 };
 use tokio::net::TcpListener;
+use tower::Layer;
 
 #[axum::debug_handler]
 async fn handler(cookie: CookieJar) -> (CookieJar, &'static str) {
@@ -42,9 +43,10 @@ async fn main() {
 
     let router = Router::new()
         .route("/", routing::get(handler))
-        .route("/theme", routing::get(theme))
-        .layer(cookie_layer)
-        .layer(session_layer);
+        .route("/theme", routing::get(theme));
+
+    let router = session_layer.layer(router);
+    let router = cookie_layer.layer(router).into_make_service();
 
     axum::serve(tcp_listener, router).await.unwrap();
 }
