@@ -86,4 +86,27 @@ pub fn cookies_from_request(headers: &HeaderMap) -> impl Iterator<Item = Cookie<
 mod tests {
     #![allow(unused_imports)]
     use super::*;
+
+    #[test]
+    fn test_typed_cookies_from_request() {
+        let mut cookies = CookieMap::new();
+        cookies.insert("session", CookieKind::Private);
+        cookies.insert("csrftoken", CookieKind::Signed);
+        cookies.insert("theme", CookieKind::Normal);
+
+        let policy = EncryptionCookiePolicy::Inclusion(cookies);
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::COOKIE,
+            "session=1234; csrftoken=5678; theme=light".parse().unwrap(),
+        );
+
+        let typed_cookies: Vec<_> = typed_cookies_from_request(&headers, &policy).collect();
+        assert_eq!(typed_cookies.len(), 3);
+
+        assert_eq!(typed_cookies[0].kind(), CookieKind::Private);
+        assert_eq!(typed_cookies[1].kind(), CookieKind::Signed);
+        assert_eq!(typed_cookies[2].kind(), CookieKind::Normal);
+    }
 }
