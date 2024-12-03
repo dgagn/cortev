@@ -30,3 +30,25 @@ impl CookieJarBuilder {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{builder::CookieJarBuilder, CookieMap, EncryptionCookiePolicy};
+
+    #[test]
+    fn test_builder() {
+        let key = cookie::Key::generate();
+        let builder = CookieJarBuilder::new(key);
+        let jar = builder.build();
+        assert_eq!(jar.encryption_policy, EncryptionCookiePolicy::default());
+    }
+
+    #[test]
+    fn test_builder_with_encryption_policy() {
+        let key = cookie::Key::generate();
+        let policy = EncryptionCookiePolicy::Exclusion(CookieMap::new());
+        let builder = CookieJarBuilder::new(key).with_encryption_policy(policy.clone());
+        let jar = builder.build();
+        assert_eq!(jar.encryption_policy, policy);
+    }
+}

@@ -4,7 +4,7 @@ use crate::CookieKind;
 
 pub type CookieKey = Cow<'static, str>;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CookieMap {
     data: HashMap<CookieKey, CookieKind>,
 }

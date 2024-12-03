@@ -1,6 +1,6 @@
 use crate::{kind::CookieKind, CookieKey, CookieMap};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EncryptionCookiePolicy {
     Inclusion(CookieMap),
     Exclusion(CookieMap),
