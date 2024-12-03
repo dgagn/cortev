@@ -1,9 +1,9 @@
 use crate::policy::EncryptionCookiePolicy;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct CookieJarBuilder {
     jar: cookie::CookieJar,
-    key: Option<cookie::Key>,
+    key: cookie::Key,
     encryption_policy: Option<EncryptionCookiePolicy>,
 }
 
@@ -11,7 +11,7 @@ impl CookieJarBuilder {
     pub fn new(key: cookie::Key) -> Self {
         Self {
             jar: cookie::CookieJar::new(),
-            key: Some(key),
+            key,
             encryption_policy: None,
         }
     }
@@ -25,7 +25,7 @@ impl CookieJarBuilder {
         crate::CookieJar {
             jar: self.jar,
             // Unwrapping is safe because we know that the key is always present
-            key: self.key.unwrap(),
+            key: self.key,
             encryption_policy: self.encryption_policy.unwrap_or_default(),
         }
     }
