@@ -2,11 +2,7 @@ use axum::{routing, Router};
 use cookie::Key;
 pub use cortev::session::Session;
 use cortev::{
-    cookie::{
-        key::CookieKind,
-        policy::{CookieKeyMap, EncryptionCookiePolicy},
-        CookieJar,
-    },
+    cookie::{CookieJar, CookieKeyMap, CookieKind, EncryptionCookiePolicy},
     session::{
         driver::MemoryDriver,
         middleware::{SessionKind, SessionLayer},
@@ -25,13 +21,13 @@ async fn main() {
 
     let mut encrypted_cookies = CookieKeyMap::new();
     encrypted_cookies.insert("id", CookieKind::Private);
-    let encryption_policy = EncryptionCookiePolicy::Whitelist(encrypted_cookies);
+    let encryption_policy = EncryptionCookiePolicy::Allowlist(encrypted_cookies);
     let key = Key::generate();
     let jar = CookieJar::builder(key)
         .with_encryption_policy(encryption_policy)
         .build();
 
-    // let cookie_layer = CookieLayer::new(encrypted_cookies);
+    // let cookie_layer = EncryptCookieLayer::new(jar);
 
     let kind = SessionKind::Cookie("id");
     let session_layer = SessionLayer::new(driver, kind);
