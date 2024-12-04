@@ -1,6 +1,7 @@
 pub mod builder;
 pub mod driver;
 mod key;
+use driver::generate_random_key;
 pub use key::SessionKey;
 
 pub mod middleware;
@@ -174,6 +175,19 @@ impl Session {
 
     pub fn flush(mut self) -> Self {
         self.data.clear();
+        self.state = self.state.transition(SessionState::Changed);
+        self
+    }
+
+    pub fn token(&self) -> Option<&str> {
+        let value = self.data.get("_token");
+        let value = value.and_then(|value| value.as_str());
+        value
+    }
+
+    pub fn regenerate_token(mut self) -> Self {
+        let token = generate_random_key(40);
+        self.data.insert("_token".into(), token.into());
         self.state = self.state.transition(SessionState::Changed);
         self
     }

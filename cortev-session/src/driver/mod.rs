@@ -64,7 +64,7 @@ pub trait SessionDriver: Sync {
     fn ttl(&self) -> Duration;
 
     fn create(&self, data: SessionData) -> impl Future<Output = SessionResult<SessionKey>> + Send {
-        let key = generate_random_key();
+        let key = generate_random_key(64);
         self.write(key.into(), data)
     }
 
@@ -98,6 +98,6 @@ pub trait SessionDriver: Sync {
 /// Generates a random session key.
 ///
 /// [OWASP recommends](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#session-id-entropy)
-pub fn generate_random_key() -> String {
-    Alphanumeric.sample_string(&mut rand::thread_rng(), 64)
+pub fn generate_random_key(value: usize) -> String {
+    Alphanumeric.sample_string(&mut rand::thread_rng(), value)
 }
