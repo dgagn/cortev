@@ -10,9 +10,8 @@ use cortev::session::{
 };
 use tokio::net::TcpListener;
 
-async fn handler(session: Session) -> (Session, &'static str) {
-    let session = session.insert("hello", "world");
-    (session, "Hello, world!")
+async fn handler() -> &'static str {
+    "Hello, world!"
 }
 
 async fn theme(session: Session) -> String {
@@ -22,6 +21,7 @@ async fn theme(session: Session) -> String {
 
 async fn login(session: Session) -> (Session, &'static str) {
     let session = session.insert("user_id", 1).regenerate();
+    let session = session.regenerate_token();
     (session, "You are logged in!")
 }
 
@@ -34,7 +34,7 @@ async fn dashboard(session: Session) -> Response {
 }
 
 async fn logout(session: Session) -> (Session, Response) {
-    let session = session.invalidate();
+    let session = session.invalidate().regenerate_token();
     (session, Redirect::to("/").into_response())
 }
 

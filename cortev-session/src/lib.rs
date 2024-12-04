@@ -63,6 +63,7 @@ impl Session {
 
     #[must_use]
     pub fn invalidate(mut self) -> Self {
+        self.data.clear();
         self.state = self.state.transition(SessionState::Invalidated);
         self
     }

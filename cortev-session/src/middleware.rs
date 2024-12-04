@@ -162,7 +162,7 @@ where
                 let session_key = match state {
                     SessionState::Changed => driver.write(key, data).await,
                     SessionState::Regenerated => driver.regenerate(key, data).await,
-                    SessionState::Invalidated => driver.invalidate(key).await,
+                    SessionState::Invalidated => driver.invalidate(key, data).await,
                     SessionState::Unchanged => Ok(key),
                 };
                 try_into_response!(session_key)

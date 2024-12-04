@@ -87,10 +87,11 @@ pub trait SessionDriver: Sync {
     fn invalidate(
         &self,
         key: SessionKey,
+        data: SessionData,
     ) -> impl Future<Output = SessionResult<SessionKey>> + Send {
         async move {
             self.destroy(key).await?;
-            self.init().await
+            self.create(data).await
         }
     }
 }
