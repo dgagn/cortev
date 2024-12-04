@@ -8,7 +8,7 @@ mod state;
 pub use state::SessionState;
 
 use axum_core::{
-    extract::FromRequestParts,
+    extract::{FromRequestParts, Request},
     response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
 };
 use http::{request, StatusCode};
