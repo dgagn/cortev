@@ -4,16 +4,14 @@ use std::{
 };
 
 use axum_core::{
-    extract::{self, FromRef, FromRequestParts},
+    extract::{self, FromRequestParts},
     response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
 };
-use cookie::Key;
-use futures::FutureExt;
 use http::{header, request::Parts, HeaderMap};
 use tower_layer::Layer;
 use tower_service::Service;
 
-use crate::{CookieJar, EncryptionCookiePolicy};
+use crate::CookieJar;
 
 #[derive(Debug, Clone)]
 pub struct CookieMidleware<S> {
@@ -85,7 +83,6 @@ where
     type Rejection = Infallible;
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        // todo: check ways to get from ref from state
         Ok(parts
             .extensions
             .get::<CookieJar>()
@@ -121,8 +118,6 @@ where
             Err(err) => err.into_response(),
         };
 
-        println!("CookieMidleware::end");
-
         res.extensions_mut().insert(this.cookie_jar.clone());
 
         Poll::Ready(Ok(res))
@@ -133,7 +128,15 @@ impl IntoResponseParts for CookieJar {
     type Error = Infallible;
 
     fn into_response_parts(self, mut res: ResponseParts) -> Result<ResponseParts, Self::Error> {
-        set_cookies(self.jar, res.headers_mut());
+        let jar = if let Some(value) = res.extensions_mut().remove::<CookieJar>() {
+            let jar = self.extend(value);
+            res.extensions_mut().insert(jar.clone());
+            jar.jar
+        } else {
+            res.extensions_mut().insert(self.clone());
+            self.jar
+        };
+        set_cookies(jar, res.headers_mut());
         Ok(res)
     }
 }

@@ -1,41 +1,44 @@
-use axum::{handler::HandlerWithoutStateExt, routing, Router, ServiceExt};
-use cookie::{Cookie, Key};
+use axum::{
+    response::{IntoResponse, Redirect, Response},
+    routing, Router,
+};
 pub use cortev::session::Session;
-use cortev::{
-    cookie::{middleware::CookieLayer, CookieJar, CookieKind, CookieMap, EncryptionCookiePolicy},
-    session::{
-        driver::MemoryDriver,
-        middleware::{SessionKind, SessionLayer},
-    },
+use cortev::session::{
+    driver::MemoryDriver,
+    middleware::{SessionKind, SessionLayer},
 };
 use tokio::net::TcpListener;
-use tower::Layer;
 
-#[axum::debug_handler]
-async fn handler(cookie: CookieJar) -> (CookieJar, &'static str) {
-    let cookie = cookie.insert(Cookie::new("theme", "light"));
-    (cookie, "Hello, world!")
+async fn handler(session: Session) -> (Session, &'static str) {
+    let session = session.insert("hello", "world");
+    (session, "Hello, world!")
 }
 
-async fn theme(cookie: CookieJar) -> String {
-    let cookie = cookie
-        .get("theme")
-        .unwrap_or_else(|| Cookie::new("theme", "christmas"));
-    format!("The theme is {}!", cookie.value())
+async fn theme(session: Session) -> String {
+    let value: String = session.get("hello").unwrap_or("WTF".into());
+    format!("The value in session is {}!", value)
+}
+
+async fn login(session: Session) -> (Session, &'static str) {
+    let session = session.insert("user_id", 1).regenerate();
+    (session, "You are logged in!")
+}
+
+async fn dashboard(session: Session) -> Response {
+    let user_id: i32 = session.get("user_id").unwrap_or(0);
+    if user_id != 1 {
+        return "You are not logged in!".into_response();
+    }
+    format!("You are logged in as user {}", user_id).into_response()
+}
+
+async fn logout(session: Session) -> (Session, Response) {
+    let session = session.invalidate();
+    (session, Redirect::to("/").into_response())
 }
 
 #[tokio::main]
 async fn main() {
-    let mut encrypted_cookies = CookieMap::new();
-    encrypted_cookies.insert("id", CookieKind::Private);
-    encrypted_cookies.insert("theme", CookieKind::Private);
-
-    let encryption_policy = EncryptionCookiePolicy::Inclusion(encrypted_cookies);
-    let key = Key::generate();
-    let jar = CookieJar::builder(key)
-        .with_encryption_policy(encryption_policy)
-        .build();
-    let cookie_layer = CookieLayer::new(jar);
     let driver = MemoryDriver::default();
     let kind = SessionKind::Cookie("id");
     let session_layer = SessionLayer::new(driver, kind);
@@ -43,10 +46,11 @@ async fn main() {
 
     let router = Router::new()
         .route("/", routing::get(handler))
-        .route("/theme", routing::get(theme));
-
-    let router = session_layer.layer(router);
-    let router = cookie_layer.layer(router).into_make_service();
+        .route("/dashboard", routing::get(dashboard))
+        .route("/logout", routing::get(logout))
+        .route("/login", routing::get(login))
+        .route("/theme", routing::get(theme))
+        .layer(session_layer);
 
     axum::serve(tcp_listener, router).await.unwrap();
 }

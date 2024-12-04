@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
+pub use cookie::time::Duration;
 pub use cookie::Cookie;
 use http::{header, HeaderMap};
 
@@ -31,9 +32,7 @@ impl CookieJar {
     #[must_use]
     pub fn insert(mut self, cookie: Cookie<'static>) -> Self {
         let name = cookie.name().to_owned();
-        println!("Cookie name: {}", name);
         let kind = self.encryption_policy.cookie_kind(name.clone());
-        println!("Cookie kind: {:?}", kind);
         match kind {
             CookieKind::Normal => self.jar.add(cookie),
             CookieKind::Signed => self.jar.signed_mut(&self.key).add(cookie),
@@ -59,6 +58,14 @@ impl CookieJar {
                     .and_then(|cookie| private_jar.decrypt(cookie))
             }
         }
+    }
+
+    pub fn extend(self, cookies: Self) -> Self {
+        let mut jar = self;
+        for cookie in cookies.jar.iter() {
+            jar = jar.insert(cookie.clone());
+        }
+        jar
     }
 
     pub fn from(

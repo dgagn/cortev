@@ -1,6 +1,7 @@
 use axum_core::{extract, response::IntoResponse, response::Response};
 use core::fmt;
-use cortev_cookie::Cookie;
+use cortev_cookie::{Cookie, Duration as CookieDuration};
+use http::{header, HeaderMap};
 use std::{
     borrow::Cow,
     convert::Infallible,
@@ -77,6 +78,24 @@ macro_rules! try_into_response {
     };
 }
 
+pub fn session_cookie(
+    headers: &HeaderMap,
+    cookie_name: impl Into<Cow<'static, str>>,
+) -> Option<Cookie<'_>> {
+    let name = cookie_name.into();
+    let value = headers
+        .get_all(header::COOKIE)
+        .into_iter()
+        .filter_map(|value| value.to_str().ok())
+        .flat_map(|value| value.split(';'))
+        .find_map(|cookie| {
+            let parsed = Cookie::parse_encoded(cookie).ok()?;
+            (parsed.name() == name).then_some(parsed)
+        });
+
+    value
+}
+
 impl<S, D, C> Service<extract::Request> for SessionMiddleware<S, D, C>
 where
     C: Into<Cow<'static, str>> + Clone + Send + 'static,
@@ -101,7 +120,6 @@ where
     }
 
     fn call(&mut self, mut req: extract::Request) -> Self::Future {
-        println!("SessionMiddleware::call");
         let not_ready_inner = self.inner.clone();
         let mut ready_inner = std::mem::replace(&mut self.inner, not_ready_inner);
 
@@ -109,15 +127,10 @@ where
         let kind = self.kind.clone();
         let future = Box::pin(async move {
             let session_key = match kind {
-                #[cfg(feature = "cookie")]
-                SessionKind::Cookie(ref id) => req
-                    .extensions()
-                    .get::<cortev_cookie::CookieJar>()
-                    .and_then(|jar| jar.get(id.clone())),
+                SessionKind::Cookie(ref id) => session_cookie(req.headers(), id.clone()),
             };
 
             let maybe_session = if let Some(cookie) = session_key {
-                println!("found cookie: {:?}", cookie);
                 let key = cookie.value();
                 match driver.read(key.into()).await {
                     Ok(session) => Some(session),
@@ -135,8 +148,6 @@ where
                 let key = try_into_response!(driver.create(data.clone()).await);
                 Session::builder(key).with_data(data).build()
             };
-
-            println!("session key: {}", session.key);
 
             let session_key = session.key.clone();
 
@@ -165,25 +176,25 @@ where
                 SessionKind::Cookie(id) => {
                     let mut cookie = Cookie::new(id, session_key.to_string());
                     cookie.set_http_only(true);
+                    let time = driver.ttl().as_secs();
+                    let max_age = CookieDuration::seconds(time as i64);
+                    cookie.set_max_age(max_age);
                     cookie
                 }
             };
 
-            let jar = response
-                .extensions()
-                .get::<cortev_cookie::CookieJar>()
-                .cloned();
-
-            if let Some(jar) = jar {
-                println!("found cookie extensions!");
-                let jar = jar.insert(cookie);
-                return (jar, response).into_response();
-            }
+            set_cookie(cookie, response.headers_mut());
 
             response
         });
 
         ResponseFuture { inner: future }
+    }
+}
+
+fn set_cookie(cookie: Cookie<'static>, headers: &mut HeaderMap) {
+    if let Ok(header_value) = cookie.encoded().to_string().parse() {
+        headers.append(header::SET_COOKIE, header_value);
     }
 }
 
@@ -199,7 +210,6 @@ impl Future for ResponseFuture {
             Poll::Ready(value) => Poll::Ready(Ok(value)),
             Poll::Pending => Poll::Pending,
         };
-        println!("SessionMiddleware::end");
         value
     }
 }
