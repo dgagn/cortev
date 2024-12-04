@@ -8,7 +8,7 @@ mod state;
 pub use state::SessionState;
 
 use axum_core::{
-    extract::{FromRequestParts, Request},
+    extract::FromRequestParts,
     response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
 };
 use http::{request, StatusCode};
@@ -106,6 +106,76 @@ impl Session {
         K: Into<String>,
     {
         self.increment_by(key, -decrementor)
+    }
+
+    #[must_use]
+    pub fn remove<K>(mut self, key: K) -> Self
+    where
+        K: AsRef<str>,
+    {
+        let key = key.as_ref();
+        self.data.remove(key);
+        self.state = self.state.transition(SessionState::Changed);
+        self
+    }
+
+    pub fn all(&self) -> &HashMap<String, serde_json::Value> {
+        &self.data
+    }
+
+    /// Get a subset of the session data.
+    pub fn only<'a, K>(
+        &'a self,
+        keys: &'a [K],
+    ) -> impl Iterator<Item = (&'a str, &'a serde_json::Value)> + 'a
+    where
+        K: AsRef<str>,
+    {
+        keys.iter().filter_map(move |key| {
+            let key = key.as_ref();
+            self.data.get(key).map(|value| (key, value))
+        })
+    }
+
+    /// Get all data except the specified keys.
+    pub fn except<'a, K>(
+        &'a self,
+        keys: &'a [K],
+    ) -> impl Iterator<Item = (&'a str, &'a serde_json::Value)> + 'a
+    where
+        K: AsRef<str>,
+    {
+        self.data
+            .iter()
+            .filter(move |(key, _)| !keys.iter().any(|k| k.as_ref().eq(*key)))
+            .map(|(key, value)| (key.as_str(), value))
+    }
+
+    pub fn pull<K>(mut self, key: K) -> (Self, Option<serde_json::Value>)
+    where
+        K: AsRef<str>,
+    {
+        let key = key.as_ref();
+        let value = self.data.remove(key);
+        self.state = self.state.transition(SessionState::Changed);
+        (self, value)
+    }
+
+    pub fn forget<K>(mut self, keys: &[K]) -> Self
+    where
+        K: AsRef<str>,
+    {
+        for key in keys {
+            let _ = self.data.remove(key.as_ref());
+        }
+        self.state = self.state.transition(SessionState::Changed);
+        self
+    }
+
+    pub fn flush(mut self) -> Self {
+        self.data.clear();
+        self.state = self.state.transition(SessionState::Changed);
+        self
     }
 
     pub(crate) fn into_parts(
