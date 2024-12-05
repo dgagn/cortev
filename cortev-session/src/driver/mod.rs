@@ -3,11 +3,11 @@ use axum_core::response::{IntoResponse, Response};
 use http::StatusCode;
 use rand::distributions::{Alphanumeric, DistString};
 use serde_json::Value;
-use std::{collections::HashMap, future::Future, time::Duration};
+use std::{borrow::Cow, collections::HashMap, future::Future, time::Duration};
 
 use super::{key::SessionKey, Session};
 
-pub(crate) type SessionData = HashMap<String, Value>;
+pub(crate) type SessionData = HashMap<Cow<'static, str>, Value>;
 
 pub(crate) trait TokenExt {
     fn session() -> Self;
@@ -17,7 +17,7 @@ impl TokenExt for SessionData {
     fn session() -> Self {
         let mut map = Self::with_capacity(1);
         let token = generate_random_key(40);
-        map.insert("_token".into(), Value::String(token));
+        map.insert(Cow::Borrowed("_token"), Value::String(token));
         map
     }
 }

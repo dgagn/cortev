@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use crate::driver::SessionData;
 
 use super::{key::SessionKey, state::SessionState, Session};
 
@@ -11,7 +11,7 @@ pub struct NoData;
 #[derive(Debug)]
 pub struct SessionBuilder<State = NoData> {
     key: SessionKey,
-    data: Option<HashMap<String, serde_json::Value>>,
+    data: Option<SessionData>,
     state: std::marker::PhantomData<State>,
 }
 
@@ -26,10 +26,10 @@ impl SessionBuilder {
 }
 
 impl SessionBuilder<NoData> {
-    pub fn with_data(self, data: HashMap<String, serde_json::Value>) -> SessionBuilder<WithData> {
+    pub fn with_data<T: Into<SessionData>>(self, data: T) -> SessionBuilder<WithData> {
         SessionBuilder {
             key: self.key,
-            data: Some(data),
+            data: Some(data.into()),
             state: std::marker::PhantomData::<WithData>,
         }
     }

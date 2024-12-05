@@ -1,7 +1,7 @@
 pub mod builder;
 pub mod driver;
 mod key;
-use driver::generate_random_key;
+use driver::{generate_random_key, SessionData};
 pub use key::SessionKey;
 
 pub mod middleware;
@@ -15,13 +15,13 @@ use axum_core::{
 };
 use http::{request, StatusCode};
 use state::Transition;
-use std::{collections::HashMap, convert::Infallible};
+use std::{borrow::Cow, convert::Infallible};
 
 #[derive(Debug, Clone)]
 pub struct Session {
     key: SessionKey,
     state: SessionState,
-    data: HashMap<String, serde_json::Value>,
+    data: SessionData,
 }
 
 impl Session {
@@ -43,7 +43,7 @@ impl Session {
     #[must_use]
     pub fn insert<K, V>(mut self, key: K, value: V) -> Self
     where
-        K: Into<String>,
+        K: Into<Cow<'static, str>>,
         V: Into<serde_json::Value>,
     {
         let key = key.into();
@@ -122,7 +122,7 @@ impl Session {
         self
     }
 
-    pub fn all(&self) -> &HashMap<String, serde_json::Value> {
+    pub fn all(&self) -> &SessionData {
         &self.data
     }
 
@@ -144,14 +144,14 @@ impl Session {
     pub fn except<'a, K>(
         &'a self,
         keys: &'a [K],
-    ) -> impl Iterator<Item = (&'a str, &'a serde_json::Value)> + 'a
+    ) -> impl Iterator<Item = (&'a Cow<'static, str>, &'a serde_json::Value)> + 'a
     where
         K: AsRef<str>,
     {
         self.data
             .iter()
             .filter(move |(key, _)| !keys.iter().any(|k| k.as_ref().eq(*key)))
-            .map(|(key, value)| (key.as_str(), value))
+            .map(|(key, value)| (key, value))
     }
 
     pub fn pull<K>(mut self, key: K) -> (Self, Option<serde_json::Value>)
@@ -194,9 +194,7 @@ impl Session {
         self
     }
 
-    pub(crate) fn into_parts(
-        self,
-    ) -> (SessionKey, SessionState, HashMap<String, serde_json::Value>) {
+    pub(crate) fn into_parts(self) -> (SessionKey, SessionState, SessionData) {
         (self.key, self.state, self.data)
     }
 }
