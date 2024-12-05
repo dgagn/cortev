@@ -26,38 +26,62 @@ pub struct Session {
     data: SessionData,
 }
 
-#[derive(Debug)]
-pub struct SessionSubset<'a> {
-    data: HashMap<&'a str, &'a Value>,
+#[derive(Debug, Clone, Copy)]
+pub enum SessionSubsetKind {
+    Only,
+    Except,
 }
 
-impl SessionSubset<'_> {
+#[derive(Debug)]
+pub struct SessionSubset<'a, K> {
+    data: &'a HashMap<Cow<'static, str>, Value>,
+    keys: &'a [K],
+    kind: SessionSubsetKind,
+}
+
+impl<K> SessionSubset<'_, K>
+where
+    K: AsRef<str>,
+{
+    fn matches(&self, key: &str) -> bool {
+        match self.kind {
+            SessionSubsetKind::Only => self.keys.iter().any(|k| k.as_ref() == key),
+            SessionSubsetKind::Except => !self.keys.iter().any(|k| k.as_ref() == key),
+        }
+    }
+
     pub fn get<V>(&self, key: impl AsRef<str>) -> Option<V>
     where
         V: serde::de::DeserializeOwned,
     {
         let key = key.as_ref();
-        self.data
-            .get(key)
-            .and_then(|value| serde_json::from_value((*value).clone()).ok())
+        self.matches(key)
+            .then(|| self.data.get(key))
+            .flatten()
+            .and_then(|value| serde_json::from_value(value.to_owned()).ok())
     }
 
-    pub fn get_ref<K>(&self, key: K) -> Option<&Value>
+    pub fn get_ref(&self, key: impl AsRef<str>) -> Option<&Value>
     where
         K: AsRef<str>,
     {
-        self.data.get(key.as_ref()).copied()
+        let key = key.as_ref();
+        self.matches(key).then(|| self.data.get(key)).flatten()
     }
 
-    pub fn get_str<K>(&self, key: K) -> Option<&str>
+    pub fn get_str(&self, key: impl AsRef<str>) -> Option<&str>
     where
         K: AsRef<str>,
     {
         self.get_ref(key).and_then(|value| value.as_str())
     }
 
-    pub fn all(&self) -> &HashMap<&str, &Value> {
-        &self.data
+    pub fn all(&self) -> HashMap<&str, &Value> {
+        self.data
+            .iter()
+            .filter(|(key, _)| self.matches(key.as_ref()))
+            .map(|(key, value)| (key.as_ref(), value))
+            .collect()
     }
 }
 
@@ -177,31 +201,26 @@ impl Session {
     }
 
     /// Get a subset of the session data.
-    pub fn only<'a, K>(&'a self, keys: &'a [K]) -> SessionSubset<'a>
+    pub fn only<'a, K>(&'a self, keys: &'a [K]) -> SessionSubset<'a, K>
     where
         K: AsRef<str>,
     {
-        let data = keys.iter().filter_map(move |key| {
-            let key = key.as_ref();
-            self.data.get(key).map(|value| (key, value))
-        });
         SessionSubset {
-            data: data.collect(),
+            data: &self.data,
+            keys,
+            kind: SessionSubsetKind::Only,
         }
     }
 
     /// Get all data except the specified keys.
-    pub fn except<'a, K>(&'a self, keys: &'a [K]) -> SessionSubset<'a>
+    pub fn except<'a, K>(&'a self, keys: &'a [K]) -> SessionSubset<'a, K>
     where
         K: AsRef<str>,
     {
-        let data = self
-            .data
-            .iter()
-            .filter(move |(key, _)| !keys.iter().any(|k| k.as_ref().eq(*key)))
-            .map(|(key, value)| (key.as_ref(), value));
         SessionSubset {
-            data: data.collect(),
+            data: &self.data,
+            keys,
+            kind: SessionSubsetKind::Except,
         }
     }
 
@@ -326,6 +345,77 @@ mod tests {
         assert_eq!(name, "John");
         assert_eq!(age, 20);
         assert!(teacher.is_none());
+    }
+
+    #[test]
+    fn test_except_session() {
+        let mut data = SessionData::new();
+        data.insert("name".into(), Value::String("John".into()));
+        data.insert("age".into(), Value::Number(20.into()));
+        data.insert("is_student".into(), Value::Bool(true));
+        data.insert("is_teacher".into(), Value::Bool(false));
+
+        let session = Session {
+            key: "key".into(),
+            state: SessionState::Unchanged,
+            data,
+        };
+
+        let keys = ["name", "age"];
+
+        let value = session.except(&keys);
+        let student = value.get::<bool>("is_student").unwrap();
+        let teacher = value.get::<bool>("is_teacher").unwrap();
+        let name = value.get_str("name");
+
+        assert!(name.is_none());
+        assert!(student);
+        assert!(!teacher);
+    }
+
+    #[test]
+    fn test_session_all() {
+        let mut data = SessionData::new();
+        data.insert("name".into(), Value::String("John".into()));
+        data.insert("age".into(), Value::Number(20.into()));
+        data.insert("is_student".into(), Value::Bool(true));
+        data.insert("is_teacher".into(), Value::Bool(false));
+
+        let session = Session {
+            key: "key".into(),
+            state: SessionState::Unchanged,
+            data,
+        };
+
+        let all = session.all();
+        assert_eq!(all.len(), 4);
+
+        let name = all.get("name").unwrap();
+        assert_eq!(name, &Value::String("John".into()));
+    }
+
+    #[test]
+    fn test_subsession_all() {
+        let mut data = SessionData::new();
+        data.insert("name".into(), Value::String("John".into()));
+        data.insert("age".into(), Value::Number(20.into()));
+        data.insert("is_student".into(), Value::Bool(true));
+        data.insert("is_teacher".into(), Value::Bool(false));
+
+        let session = Session {
+            key: "key".into(),
+            state: SessionState::Unchanged,
+            data,
+        };
+
+        let keys = ["name", "age"];
+        let value = session.only(&keys);
+
+        let all = value.all();
+        assert_eq!(all.len(), 2);
+
+        let name = *all.get("name").unwrap();
+        assert_eq!(name, &Value::String("John".into()));
     }
 
     #[test]
