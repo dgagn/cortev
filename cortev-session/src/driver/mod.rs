@@ -22,6 +22,10 @@ impl TokenExt for SessionData {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("failed to serialize session data")]
+pub struct ToJsonError(#[from] serde_json::Error);
+
 #[cfg(feature = "redis")]
 pub(crate) trait ToJson {
     fn to_json(&self) -> SessionResult<String>;
@@ -72,8 +76,14 @@ type SessionResult<T> = Result<T, SessionError>;
 pub enum SessionError {
     #[error("session was not found")]
     NotFound,
+
     #[error(transparent)]
     Unexpected(#[from] anyhow::Error),
+}
+
+pub trait ErrorContextExt<T> {
+    type Error;
+    fn session_context(self, context: impl Into<Cow<'static, str>>) -> Result<T, Self::Error>;
 }
 
 impl IntoResponse for SessionError {
@@ -82,9 +92,7 @@ impl IntoResponse for SessionError {
             SessionError::NotFound => {
                 (StatusCode::NOT_FOUND, "session was not found").into_response()
             }
-            SessionError::Unexpected(_) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "unexpected error").into_response()
-            }
+            _ => (StatusCode::INTERNAL_SERVER_ERROR, "unexpected error").into_response(),
         }
     }
 }

@@ -156,11 +156,17 @@ impl RedisDriver {
             RedisConnectionKind::Pool(pool) => {
                 #[cfg(feature = "tracing")]
                 tracing::debug!("Getting a connection from the pool...");
-                let connection = pool.get().await.context("cannot get a connection")?;
+
+                let connection = pool
+                    .get()
+                    .await
+                    .with_context(|| "cannot get a connection from the pool")?;
+
                 let value = self
                     .retry::<T>(connection, cmd)
                     .await
-                    .context("cannot execute the redis command")?;
+                    .with_context(|| "cannot query the redis connection")?;
+
                 Ok::<T, SessionError>(value)
             }
         }
@@ -177,6 +183,7 @@ impl SessionDriver for RedisDriver {
 
         let mut command = cmd("GETEX");
         let command = command.arg(&prefixed_key).arg("EX").arg(self.ttl.as_secs());
+
         let command = RedisCommand::Command(command);
         let value: Option<String> = self
             .query(command)

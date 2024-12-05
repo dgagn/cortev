@@ -9,7 +9,7 @@ use cortev::session::{
     driver::RedisDriver,
     middleware::{SessionKind, SessionLayer},
 };
-use deadpool_redis::{Config, Runtime};
+use deadpool_redis::{Config, PoolConfig, Runtime};
 use tokio::net::TcpListener;
 
 async fn handler() -> &'static str {
@@ -50,9 +50,12 @@ async fn main() {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let pool = Config::from_url("redis://127.0.0.1:6379")
-        .create_pool(Some(Runtime::Tokio1))
-        .unwrap();
+    let mut poolconfig = PoolConfig::new(0);
+    poolconfig.timeouts.wait = Some(Duration::from_secs(1));
+
+    let mut config = Config::from_url("redis://127.0.0.1:6379");
+    config.pool = Some(poolconfig);
+    let pool = config.create_pool(Some(Runtime::Tokio1)).unwrap();
 
     let driver = RedisDriver::builder(pool)
         .with_ttl(Duration::from_secs(60 * 60 * 120))
