@@ -9,10 +9,10 @@ unsafe_code = "forbid"
 rust_2018_idioms = { level = "warn", priority = -1 }
 missing_debug_implementations = "warn"
 unreachable_pub = "warn"
+# missing_docs = "warn"
 
 [workspace.lints.clippy]
 type_complexity = "allow"
-
 await_holding_lock = "warn"
 dbg_macro = "warn"
 # empty_enum = "warn"

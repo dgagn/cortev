@@ -19,6 +19,7 @@ use std::{borrow::Cow, collections::HashMap, convert::Infallible};
 
 pub(crate) type SessionData = HashMap<Cow<'static, str>, Value>;
 
+/// Represents a user session with data storage and management capabilities.
 #[derive(Debug, Clone)]
 pub struct Session {
     key: SessionKey,
@@ -114,10 +115,13 @@ where
 }
 
 impl Session {
+    /// Retrieves the session's key.
     pub fn key(&self) -> &str {
         &self.key
     }
 
+    /// Gets a value from the session by key and deserializes it into the specified type.
+    /// Returns `None` if the key doesn't exist or deserialization fails.
     pub fn get<V>(&self, key: impl AsRef<str>) -> Option<V>
     where
         V: serde::de::DeserializeOwned,
@@ -128,6 +132,27 @@ impl Session {
             .and_then(|value| serde_json::from_value(value.to_owned()).ok())
     }
 
+    /// Gets a value from the session by key and deserializes it into the specified type.
+    /// Returns an error if deserialization fails.
+    pub fn try_get<V>(&self, key: impl AsRef<str>) -> Result<V, serde_json::Error>
+    where
+        V: serde::de::DeserializeOwned,
+    {
+        let key = key.as_ref();
+        let value = self.data.get(key).cloned().unwrap_or_default();
+        serde_json::from_value(value)
+    }
+
+    /// Gets a value from the session by key or returns the default value if the key doesn't exist
+    /// or deserialization fails.
+    pub fn get_or_default<V>(&self, key: impl AsRef<str>) -> V
+    where
+        V: Default + serde::de::DeserializeOwned,
+    {
+        self.get(key).unwrap_or_default()
+    }
+
+    /// Gets a reference to the raw `Value` associated with the given key.
     pub fn get_ref<K>(&self, key: K) -> Option<&Value>
     where
         K: AsRef<str>,
@@ -135,6 +160,7 @@ impl Session {
         self.data.get(key.as_ref())
     }
 
+    /// Gets a string reference for the value associated with the given key.
     pub fn get_str<K>(&self, key: K) -> Option<&str>
     where
         K: AsRef<str>,
@@ -142,6 +168,7 @@ impl Session {
         self.get_ref(key).and_then(|value| value.as_str())
     }
 
+    /// Inserts a key-value pair into the session, marking its state as changed.
     #[must_use]
     pub fn insert<K, V>(mut self, key: K, value: V) -> Self
     where
@@ -154,16 +181,19 @@ impl Session {
         self
     }
 
+    /// Retrieves the current session state.
     pub fn state(&self) -> SessionState {
         self.state
     }
 
+    /// Marks the session as regenerated and returns the updated session.
     #[must_use]
     pub fn regenerate(mut self) -> Self {
         self.state = self.state.transition(SessionState::Regenerated);
         self
     }
 
+    /// Invalidates the session by clearing its data and marking its state as invalidated.
     #[must_use]
     pub fn invalidate(mut self) -> Self {
         self.data.clear();
@@ -171,6 +201,7 @@ impl Session {
         self
     }
 
+    /// Checks if the session contains a specific key.
     pub fn has<K>(&self, key: K) -> bool
     where
         K: AsRef<str>,
@@ -178,6 +209,8 @@ impl Session {
         self.data.contains_key(key.as_ref())
     }
 
+    /// Increments the numeric value associated with the key by 1. If the key doesn't exist, it's
+    /// initialized to 0 before incrementing.
     #[must_use]
     pub fn increment<K>(self, key: K) -> Self
     where
@@ -186,6 +219,7 @@ impl Session {
         self.increment_by(key, 1)
     }
 
+    /// Increments the numeric value associated with the key by the specified amount.
     #[must_use]
     pub fn increment_by<K>(self, key: K, incrementor: i32) -> Self
     where
@@ -197,6 +231,7 @@ impl Session {
         self.insert(key, value)
     }
 
+    /// Decrements the numeric value associated with the key by 1.
     #[must_use]
     pub fn decrement<K>(self, key: K) -> Self
     where
@@ -205,6 +240,7 @@ impl Session {
         self.decrement_by(key, 1)
     }
 
+    /// Decrements the numeric value associated with the key by the specified amount.
     #[must_use]
     pub fn decrement_by<K>(self, key: K, decrementor: i32) -> Self
     where
@@ -213,6 +249,7 @@ impl Session {
         self.increment_by(key, -decrementor)
     }
 
+    /// Removes a key-value pair from the session and marks its state as changed.
     #[must_use]
     pub fn remove<K>(mut self, key: K) -> Self
     where
@@ -224,11 +261,12 @@ impl Session {
         self
     }
 
+    /// Retrieves all session data as a reference.
     pub fn all(&self) -> &SessionData {
         &self.data
     }
 
-    /// Get a subset of the session data.
+    /// Retrieves a subset of session data containing only the specified keys.
     pub fn only<'a, K>(&'a self, keys: &'a [K]) -> SessionSubset<'a, K>
     where
         K: AsRef<str>,
@@ -242,7 +280,7 @@ impl Session {
         }
     }
 
-    /// Get all data except the specified keys.
+    /// Retrieves all session data except the specified keys.
     pub fn except<'a, K>(&'a self, keys: &'a [K]) -> SessionSubset<'a, K>
     where
         K: AsRef<str>,
@@ -256,6 +294,8 @@ impl Session {
         }
     }
 
+    /// Removes a key-value pair from the session, returning the updated session and the removed value
+    /// (if it existed).
     #[must_use]
     pub fn pull<K>(mut self, key: K) -> (Self, Option<serde_json::Value>)
     where
@@ -267,6 +307,7 @@ impl Session {
         (self, value)
     }
 
+    /// Removes multiple keys from the session and marks its state as changed.
     #[must_use]
     pub fn forget<K>(mut self, keys: &[K]) -> Self
     where
@@ -279,6 +320,7 @@ impl Session {
         self
     }
 
+    /// Clears all session data and marks its state as changed.
     #[must_use]
     pub fn flush(mut self) -> Self {
         self.data.clear();
@@ -286,12 +328,14 @@ impl Session {
         self
     }
 
+    /// Retrieves the session's token value, if present.
     pub fn token(&self) -> Option<&str> {
         let value = self.data.get("_token");
         let value = value.and_then(|value| value.as_str());
         value
     }
 
+    /// Regenerates the session token, marking the session state as changed.
     #[must_use]
     pub fn regenerate_token(mut self) -> Self {
         let token = generate_random_key(40);
@@ -300,6 +344,7 @@ impl Session {
         self
     }
 
+    /// Decomposes the session into its key, state, and data components.
     pub(crate) fn into_parts(self) -> (SessionKey, SessionState, SessionData) {
         (self.key, self.state, self.data)
     }
