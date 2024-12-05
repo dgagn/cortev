@@ -26,20 +26,68 @@ pub struct Session {
     data: SessionData,
 }
 
+#[derive(Debug)]
+pub struct SessionSubset<'a> {
+    data: HashMap<&'a str, &'a Value>,
+}
+
+impl SessionSubset<'_> {
+    pub fn get<V>(&self, key: impl AsRef<str>) -> Option<V>
+    where
+        V: serde::de::DeserializeOwned,
+    {
+        let key = key.as_ref();
+        self.data
+            .get(key)
+            .and_then(|value| serde_json::from_value((*value).to_owned()).ok())
+    }
+
+    pub fn get_ref<K>(&self, key: K) -> Option<&Value>
+    where
+        K: AsRef<str>,
+    {
+        self.data.get(key.as_ref()).copied()
+    }
+
+    pub fn get_str<K>(&self, key: K) -> Option<&str>
+    where
+        K: AsRef<str>,
+    {
+        self.get_ref(key).and_then(|value| value.as_str())
+    }
+
+    pub fn all(&self) -> &HashMap<&str, &Value> {
+        &self.data
+    }
+}
+
 impl Session {
     pub fn key(&self) -> &str {
         &self.key
     }
 
-    pub fn get<K, V>(&self, key: K) -> Option<V>
+    pub fn get<V>(&self, key: impl AsRef<str>) -> Option<V>
     where
-        K: AsRef<str>,
         V: serde::de::DeserializeOwned,
     {
         let key = key.as_ref();
         self.data
             .get(key)
             .and_then(|value| serde_json::from_value(value.to_owned()).ok())
+    }
+
+    pub fn get_ref<K>(&self, key: K) -> Option<&Value>
+    where
+        K: AsRef<str>,
+    {
+        self.data.get(key.as_ref())
+    }
+
+    pub fn get_str<K>(&self, key: K) -> Option<&str>
+    where
+        K: AsRef<str>,
+    {
+        self.get_ref(key).and_then(|value| value.as_str())
     }
 
     #[must_use]
@@ -129,32 +177,35 @@ impl Session {
     }
 
     /// Get a subset of the session data.
-    pub fn only<'a, K>(
-        &'a self,
-        keys: &'a [K],
-    ) -> impl Iterator<Item = (&'a str, &'a serde_json::Value)> + 'a
+    pub fn only<'a, K>(&'a self, keys: &'a [K]) -> SessionSubset<'a>
     where
         K: AsRef<str>,
     {
-        keys.iter().filter_map(move |key| {
+        let data = keys.iter().filter_map(move |key| {
             let key = key.as_ref();
             self.data.get(key).map(|value| (key, value))
-        })
+        });
+        SessionSubset {
+            data: data.collect(),
+        }
     }
 
     /// Get all data except the specified keys.
-    pub fn except<'a, K>(
-        &'a self,
-        keys: &'a [K],
-    ) -> impl Iterator<Item = (&'a Cow<'static, str>, &'a serde_json::Value)> + 'a
+    pub fn except<'a, K>(&'a self, keys: &'a [K]) -> SessionSubset<'a>
     where
         K: AsRef<str>,
     {
-        self.data
+        let data = self
+            .data
             .iter()
             .filter(move |(key, _)| !keys.iter().any(|k| k.as_ref().eq(*key)))
+            .map(|(key, value)| (key.as_ref(), value));
+        SessionSubset {
+            data: data.collect(),
+        }
     }
 
+    #[must_use]
     pub fn pull<K>(mut self, key: K) -> (Self, Option<serde_json::Value>)
     where
         K: AsRef<str>,
@@ -165,6 +216,7 @@ impl Session {
         (self, value)
     }
 
+    #[must_use]
     pub fn forget<K>(mut self, keys: &[K]) -> Self
     where
         K: AsRef<str>,
@@ -176,6 +228,7 @@ impl Session {
         self
     }
 
+    #[must_use]
     pub fn flush(mut self) -> Self {
         self.data.clear();
         self.state = self.state.transition(SessionState::Changed);
@@ -188,6 +241,7 @@ impl Session {
         value
     }
 
+    #[must_use]
     pub fn regenerate_token(mut self) -> Self {
         let token = generate_random_key(40);
         self.data.insert("_token".into(), Value::String(token));
@@ -241,5 +295,61 @@ where
             .get::<Self>()
             .cloned()
             .ok_or(MissingSessionExtension)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_only_session() {
+        let mut data = SessionData::new();
+        data.insert("name".into(), Value::String("John".into()));
+        data.insert("age".into(), Value::Number(20.into()));
+        data.insert("is_student".into(), Value::Bool(true));
+        data.insert("is_teacher".into(), Value::Bool(false));
+
+        let session = Session {
+            key: "key".into(),
+            state: SessionState::Unchanged,
+            data,
+        };
+
+        let keys = ["name", "age"];
+
+        let value = session.only(&keys);
+        let name = value.get_str("name").unwrap();
+        let age = value.get::<i32>("age").unwrap();
+        let teacher = value.get::<bool>("is_teacher");
+
+        assert_eq!(name, "John");
+        assert_eq!(age, 20);
+        assert!(teacher.is_none());
+    }
+
+    #[test]
+    fn test_session_get() {
+        let mut data = SessionData::new();
+        data.insert("name".into(), Value::String("John".into()));
+        data.insert("age".into(), Value::Number(20.into()));
+        data.insert("is_student".into(), Value::Bool(true));
+        data.insert("is_teacher".into(), Value::Bool(false));
+
+        let session = Session {
+            key: "key".into(),
+            state: SessionState::Unchanged,
+            data,
+        };
+
+        let name = session.get::<String>("name").unwrap();
+        let age = session.get::<i32>("age").unwrap();
+        let is_student = session.get::<bool>("is_student").unwrap();
+        let is_teacher = session.get::<bool>("is_teacher").unwrap();
+
+        assert_eq!(name, "John");
+        assert_eq!(age, 20);
+        assert!(is_student);
+        assert!(!is_teacher);
     }
 }
