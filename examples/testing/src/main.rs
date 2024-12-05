@@ -1,12 +1,15 @@
+use std::time::Duration;
+
 use axum::{
     response::{IntoResponse, Redirect, Response},
     routing, Router,
 };
 pub use cortev::session::Session;
 use cortev::session::{
-    driver::MemoryDriver,
+    driver::{RedisConnectionKind, RedisDriver},
     middleware::{SessionKind, SessionLayer},
 };
+use deadpool_redis::Runtime;
 use tokio::net::TcpListener;
 
 async fn handler() -> &'static str {
@@ -43,9 +46,14 @@ async fn logout(session: Session) -> (Session, Response) {
 
 #[tokio::main]
 async fn main() {
-    let driver = MemoryDriver::default();
+    let config = deadpool_redis::Config::from_url("");
+    let pool = config.create_pool(Some(Runtime::Tokio1)).unwrap();
+    let connection_kind = RedisConnectionKind::Pool(pool);
+    let ttl = Duration::from_secs(60 * 60 * 120);
+    let driver = RedisDriver::new(connection_kind, ttl);
     let kind = SessionKind::Cookie("id");
     let session_layer = SessionLayer::new(driver, kind);
+
     let tcp_listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
 
     let router = Router::new()

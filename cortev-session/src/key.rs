@@ -43,6 +43,11 @@ impl From<SessionKey> for String {
 
 impl fmt::Display for SessionKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        let key = self.0.as_ref();
+        if key.len() > 24 {
+            write!(f, "{}...{}", &key[..8], &key[key.len() - 8..])
+        } else {
+            write!(f, "{}", key) // If the key is too short, display it fully
+        }
     }
 }

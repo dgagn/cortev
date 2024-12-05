@@ -23,7 +23,7 @@ impl TokenExt for SessionData {
 }
 
 #[cfg(feature = "redis")]
-trait ToJson {
+pub(crate) trait ToJson {
     fn to_json(&self) -> SessionResult<String>;
 }
 
@@ -35,13 +35,35 @@ impl ToJson for SessionData {
     }
 }
 
+#[cfg(feature = "redis")]
+pub(crate) trait FromJson {
+    fn from_json(value: &str) -> SessionResult<Self>
+    where
+        Self: Sized;
+}
+
+#[cfg(feature = "redis")]
+impl FromJson for SessionData {
+    fn from_json(value: &str) -> SessionResult<Self> {
+        let value = serde_json::from_str(value).context("failed to deserialize session data")?;
+        Ok(value)
+    }
+}
+
 #[cfg(feature = "memory")]
 mod memory;
 mod null;
 
+#[cfg(feature = "redis")]
+mod redis;
+
 // Drivers
 #[cfg(feature = "memory")]
 pub use memory::MemoryDriver;
+
+#[cfg(feature = "redis")]
+pub use redis::{RedisConnectionKind, RedisDriver};
+
 pub use null::NullDriver;
 
 type SessionResult<T> = Result<T, SessionError>;

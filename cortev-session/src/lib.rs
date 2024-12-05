@@ -39,7 +39,7 @@ impl SessionSubset<'_> {
         let key = key.as_ref();
         self.data
             .get(key)
-            .and_then(|value| serde_json::from_value((*value).to_owned()).ok())
+            .and_then(|value| serde_json::from_value((*value).clone()).ok())
     }
 
     pub fn get_ref<K>(&self, key: K) -> Option<&Value>
@@ -129,7 +129,7 @@ impl Session {
     #[must_use]
     pub fn increment<K>(self, key: K) -> Self
     where
-        K: Into<String>,
+        K: Into<Cow<'static, str>>,
     {
         self.increment_by(key, 1)
     }
@@ -137,7 +137,7 @@ impl Session {
     #[must_use]
     pub fn increment_by<K>(self, key: K, incrementor: i32) -> Self
     where
-        K: Into<String>,
+        K: Into<Cow<'static, str>>,
     {
         let key = key.into();
         let value: i32 = self.get(&key).unwrap_or(0);
@@ -148,7 +148,7 @@ impl Session {
     #[must_use]
     pub fn decrement<K>(self, key: K) -> Self
     where
-        K: Into<String>,
+        K: Into<Cow<'static, str>>,
     {
         self.decrement_by(key, 1)
     }
@@ -156,7 +156,7 @@ impl Session {
     #[must_use]
     pub fn decrement_by<K>(self, key: K, decrementor: i32) -> Self
     where
-        K: Into<String>,
+        K: Into<Cow<'static, str>>,
     {
         self.increment_by(key, -decrementor)
     }

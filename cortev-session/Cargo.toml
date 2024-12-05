@@ -21,6 +21,8 @@ anyhow = "1.0.93"
 thiserror = "2.0.3"
 dashmap = { version = "6.1.0", optional = true }
 cookie = { version = "0.18.1", features = ["percent-encode"] }
+deadpool-redis = { version = "0.18.0", optional = true }
+redis = { version = "0.27.6", features = ["aio", "connection-manager"], optional = true }
 
 [lints]
 workspace = true
@@ -28,4 +30,4 @@ workspace = true
 [features]
 default = []
 memory = ["dep:dashmap"]
-redis = []
+redis = ["dep:redis", "dep:deadpool-redis"]

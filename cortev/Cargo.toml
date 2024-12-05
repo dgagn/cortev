@@ -10,7 +10,6 @@ readme = "README.md"
 
 [dependencies]
 cortev-session = { path = "../cortev-session", optional = true }
-cortev-cookie = { path = "../cortev-cookie", optional = true }
 
 [lints]
 workspace = true
@@ -18,6 +17,5 @@ workspace = true
 
 [features]
 default = []
-cookie = ["dep:cortev-cookie"]
-session = ["cookie", "dep:cortev-session"]
-session-memory = ["session", "cortev-session?/memory"]
+session = ["dep:cortev-session"]
+session-memory = ["session", "cortev-session?/redis"]
