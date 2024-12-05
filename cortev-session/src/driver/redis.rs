@@ -89,16 +89,6 @@ impl RedisDriver {
         RedisDriverBuilder::new(connection_kind.into())
     }
 
-    pub fn with_prefix(mut self, prefix: impl Into<Cow<'static, str>>) -> Self {
-        self.prefix = Some(prefix.into());
-        self
-    }
-
-    pub fn with_ttl(mut self, ttl: Duration) -> Self {
-        self.ttl = ttl;
-        self
-    }
-
     fn prefixed_key<'a>(&'a self, key: &'a str) -> Cow<'a, str> {
         if let Some(prefix) = &self.prefix {
             let mut result = String::with_capacity(prefix.len() + key.len());
