@@ -1,5 +1,6 @@
 use core::fmt;
 use std::{
+    borrow::Cow,
     fmt::{Debug, Formatter},
     time::Duration,
 };
@@ -12,17 +13,59 @@ use crate::{builder::BuildSession, driver::SessionError, Session, SessionData, S
 
 use super::{generate_random_key, FromJson, SessionDriver, SessionResult, ToJson};
 
-// TODO: add a way to add a prefix to the key
-
 #[derive(Clone)]
 pub enum RedisConnectionKind {
     Pool(Pool),
+}
+
+impl From<deadpool_redis::Pool> for RedisConnectionKind {
+    fn from(pool: Pool) -> Self {
+        Self::Pool(pool)
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct RedisDriver {
     connection_kind: RedisConnectionKind,
     ttl: Duration,
+    prefix: Option<Cow<'static, str>>,
+}
+
+#[derive(Debug)]
+pub struct RedisDriverBuilder {
+    connection_kind: RedisConnectionKind,
+    ttl: Option<Duration>,
+    prefix: Option<Cow<'static, str>>,
+}
+
+impl RedisDriverBuilder {
+    pub(crate) fn new(connection_kind: RedisConnectionKind) -> Self {
+        Self {
+            connection_kind,
+            ttl: None,
+            prefix: None,
+        }
+    }
+
+    pub fn with_ttl(mut self, ttl: Duration) -> Self {
+        self.ttl = Some(ttl);
+        self
+    }
+
+    pub fn with_prefix(mut self, prefix: impl Into<Cow<'static, str>>) -> Self {
+        self.prefix = Some(prefix.into());
+        self
+    }
+
+    pub fn build(self) -> RedisDriver {
+        RedisDriver {
+            connection_kind: self.connection_kind,
+            ttl: self
+                .ttl
+                .unwrap_or_else(|| Duration::from_secs(60 * 60 * 120)),
+            prefix: self.prefix,
+        }
+    }
 }
 
 pub(crate) enum RedisCommand<'a> {
@@ -35,6 +78,35 @@ impl RedisDriver {
         Self {
             connection_kind,
             ttl,
+            prefix: None,
+        }
+    }
+
+    pub fn builder<T>(connection_kind: T) -> RedisDriverBuilder
+    where
+        T: Into<RedisConnectionKind>,
+    {
+        RedisDriverBuilder::new(connection_kind.into())
+    }
+
+    pub fn with_prefix(mut self, prefix: impl Into<Cow<'static, str>>) -> Self {
+        self.prefix = Some(prefix.into());
+        self
+    }
+
+    pub fn with_ttl(mut self, ttl: Duration) -> Self {
+        self.ttl = ttl;
+        self
+    }
+
+    fn prefixed_key<'a>(&'a self, key: &'a str) -> Cow<'a, str> {
+        if let Some(prefix) = &self.prefix {
+            let mut result = String::with_capacity(prefix.len() + key.len());
+            result.push_str(prefix);
+            result.push_str(key);
+            Cow::Owned(result)
+        } else {
+            Cow::Borrowed(key)
         }
     }
 
@@ -111,8 +183,10 @@ impl SessionDriver for RedisDriver {
         #[cfg(feature = "tracing")]
         tracing::debug!("Reading the session");
 
+        let prefixed_key = self.prefixed_key(&key);
+
         let mut command = cmd("GETEX");
-        let command = command.arg(&*key).arg("EX").arg(self.ttl.as_secs());
+        let command = command.arg(&prefixed_key).arg("EX").arg(self.ttl.as_secs());
         let command = RedisCommand::Command(command);
         let value: Option<String> = self
             .query(command)
@@ -139,13 +213,15 @@ impl SessionDriver for RedisDriver {
         #[cfg(feature = "tracing")]
         tracing::debug!("Writing session");
 
+        let prefixed_key = self.prefixed_key(&key);
+
         let data = data
             .to_json()
             .with_context(|| format!("cannot serialize session data to key {}", key))?;
 
         let mut command = cmd("SET");
         let command = command
-            .arg(&*key)
+            .arg(&prefixed_key)
             .arg(data)
             .arg("EX")
             .arg(self.ttl.as_secs());
@@ -164,8 +240,9 @@ impl SessionDriver for RedisDriver {
 
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
     async fn destroy(&self, key: SessionKey) -> SessionResult<()> {
+        let prefixed_key = self.prefixed_key(&key);
         let mut command = cmd("DEL");
-        let command = command.arg(&*key);
+        let command = command.arg(&prefixed_key);
         let command = RedisCommand::Command(command);
         let _: () = self
             .query(command)
@@ -185,14 +262,16 @@ impl SessionDriver for RedisDriver {
     ) -> SessionResult<SessionKey> {
         #[cfg(feature = "tracing")]
         tracing::debug!("Regenerating session");
+        let old_prefixed_key = self.prefixed_key(&old_key);
 
         let data = data
             .to_json()
             .with_context(|| format!("cannot serialize session data to key {}", old_key))?;
         let new_key = generate_random_key(64);
+        let prefixed_new_key = self.prefixed_key(&new_key);
         let mut pipeline = redis::pipe();
-        pipeline.set_ex(&*new_key, data, self.ttl.as_secs());
-        pipeline.del(&*old_key);
+        pipeline.set_ex(&prefixed_new_key, data, self.ttl.as_secs());
+        pipeline.del(&old_prefixed_key);
         pipeline.ignore();
         let command = RedisCommand::Pipeline(&mut pipeline);
 
@@ -213,6 +292,8 @@ impl SessionDriver for RedisDriver {
         #[cfg(feature = "tracing")]
         tracing::debug!("Invalidating session...");
 
+        let prefixed_key = self.prefixed_key(&key);
+
         let data = data.to_json().with_context(|| {
             format!(
                 "cannot serialize session data to key {} for invalidation",
@@ -220,9 +301,10 @@ impl SessionDriver for RedisDriver {
             )
         })?;
         let new_key = generate_random_key(64);
+        let prefixed_new_key = self.prefixed_key(&new_key);
         let mut pipeline = redis::pipe();
-        pipeline.del(&*key);
-        pipeline.set_ex(&*new_key, data, self.ttl.as_secs());
+        pipeline.del(&prefixed_key);
+        pipeline.set_ex(&prefixed_new_key, data, self.ttl.as_secs());
         pipeline.ignore();
 
         let command = RedisCommand::Pipeline(&mut pipeline);
