@@ -46,6 +46,10 @@ async fn logout(session: Session) -> (Session, Response) {
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
+
     let config = deadpool_redis::Config::from_url("redis://127.0.0.1:6379");
     let pool = config.create_pool(Some(Runtime::Tokio1)).unwrap();
     let connection_kind = RedisConnectionKind::Pool(pool);

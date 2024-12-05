@@ -78,11 +78,15 @@ macro_rules! try_into_response {
     };
 }
 
+#[cfg_attr(feature = "tracing", tracing::instrument(skip(headers, cookie_name)))]
 pub fn session_cookie(
     headers: &HeaderMap,
     cookie_name: impl Into<Cow<'static, str>>,
 ) -> Option<Cookie<'_>> {
     let name = cookie_name.into();
+    #[cfg(feature = "tracing")]
+    tracing::debug!("Looking for session cookie with name {}", name);
+
     let value = headers
         .get_all(header::COOKIE)
         .into_iter()
@@ -112,14 +116,21 @@ where
     type Error = Infallible;
     type Future = ResponseFuture;
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     fn poll_ready(
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("Polling session middleware");
+
         self.inner.poll_ready(cx)
     }
 
+    #[cfg_attr(feature = "tracing", tracing::instrument(skip_all, fields(http.uri = %req.uri(), http.method = %req.method())))]
     fn call(&mut self, mut req: extract::Request) -> Self::Future {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("Session middleware called");
         let not_ready_inner = self.inner.clone();
         let mut ready_inner = std::mem::replace(&mut self.inner, not_ready_inner);
 
@@ -134,8 +145,17 @@ where
                 let key = cookie.value();
                 match driver.read(key.into()).await {
                     Ok(session) => Some(session),
-                    Err(SessionError::NotFound) => None,
-                    Err(err) => return err.into_response(),
+                    Err(SessionError::NotFound) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("Session not found");
+                        None
+                    }
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("Error reading session: {:?}", err);
+
+                        return err.into_response();
+                    }
                 }
             } else {
                 None
@@ -167,6 +187,8 @@ where
                 };
                 try_into_response!(session_key)
             } else {
+                #[cfg(feature = "tracing")]
+                tracing::debug!("Session not found in response extensions");
                 session_key
             };
 
@@ -182,6 +204,9 @@ where
             };
 
             set_cookie(cookie, response.headers_mut());
+
+            #[cfg(feature = "tracing")]
+            tracing::debug!("Session middleware finished");
 
             response
         });
