@@ -16,9 +16,9 @@ use axum_core::{
 use http::{request, StatusCode};
 use state::Transition;
 use std::{borrow::Cow, collections::HashMap, convert::Infallible};
-pub use subsession::{SessionSubset, SessionSubsetKind};
+pub use subset::{SessionSubset, SessionSubsetKind};
 
-mod subsession;
+mod subset;
 
 pub(crate) type SessionData = HashMap<Cow<'static, str>, Value>;
 
@@ -385,37 +385,6 @@ mod tests {
 
         let name = all.get("name").unwrap();
         assert_eq!(name, &Value::String("John".into()));
-    }
-
-    #[test]
-    fn test_subsession_all() {
-        let mut data = SessionData::new();
-        data.insert("name".into(), Value::String("John".into()));
-        data.insert("age".into(), Value::Number(20.into()));
-        data.insert("is_student".into(), Value::Bool(true));
-        data.insert("is_teacher".into(), Value::Bool(false));
-
-        let session = Session {
-            key: "key".into(),
-            state: SessionState::Unchanged,
-            data,
-        };
-
-        let keys = ["name", "age"];
-        let value = session.only(&keys);
-
-        let session = value.into_session();
-        let all = session.all();
-        assert_eq!(all.len(), 2);
-
-        let value = all.get("name").unwrap();
-        let name = session.get_str("name").unwrap();
-
-        let state = session.state();
-
-        assert_eq!(value, &Value::String("John".into()));
-        assert_eq!(name, "John");
-        assert_eq!(state, SessionState::Changed);
     }
 
     #[test]
