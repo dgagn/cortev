@@ -32,56 +32,82 @@ pub enum SessionSubsetKind {
     Except,
 }
 
+/// A subset of session data filtered by specific keys.
+///
+/// Allows users to work with a subset of a session's data, either including
+/// or excluding specified keys based on the subset kind.
 #[derive(Debug)]
 pub struct SessionSubset<'a, K> {
+    /// Reference to the full session data.
     data: &'a HashMap<Cow<'static, str>, Value>,
+    /// The keys used to filter the session data.
     keys: &'a [K],
+    /// The kind of subset to create.
     kind: SessionSubsetKind,
+    /// Reference to the session's unique key.
+    session_key: &'a SessionKey,
+    /// The current state of the session associated with this subset.
+    state: SessionState,
 }
 
 impl<K> SessionSubset<'_, K>
 where
     K: AsRef<str>,
 {
-    fn matches(&self, key: &str) -> bool {
+    /// Checks whether the given `key` exists in the subset based on the filtering rules.
+    pub fn has(&self, key: &str) -> bool {
         match self.kind {
             SessionSubsetKind::Only => self.keys.iter().any(|k| k.as_ref() == key),
             SessionSubsetKind::Except => !self.keys.iter().any(|k| k.as_ref() == key),
         }
     }
 
+    /// Retrieves and deserializes the value associated with the given `key` in the subset.
+    ///
+    /// Returns `Some` if the key is included in the subset and deserialization succeeds.
     pub fn get<V>(&self, key: impl AsRef<str>) -> Option<V>
     where
         V: serde::de::DeserializeOwned,
     {
         let key = key.as_ref();
-        self.matches(key)
+        self.has(key)
             .then(|| self.data.get(key))
             .flatten()
-            .and_then(|value| serde_json::from_value(value.to_owned()).ok())
+            .and_then(|value| serde_json::from_value(value.clone()).ok())
     }
 
-    pub fn get_ref(&self, key: impl AsRef<str>) -> Option<&Value>
-    where
-        K: AsRef<str>,
-    {
+    /// Retrieves a reference to the raw value associated with the given `key` in the subset.
+    ///
+    /// Returns `Some` if the key exists in the subset.
+    pub fn get_ref(&self, key: impl AsRef<str>) -> Option<&Value> {
         let key = key.as_ref();
-        self.matches(key).then(|| self.data.get(key)).flatten()
+        self.has(key).then(|| self.data.get(key)).flatten()
     }
 
-    pub fn get_str(&self, key: impl AsRef<str>) -> Option<&str>
-    where
-        K: AsRef<str>,
-    {
+    /// Retrieves the value associated with the given `key` as a string, if possible.
+    ///
+    /// Returns `Some` if the key exists and its value is a string.
+    pub fn get_str(&self, key: impl AsRef<str>) -> Option<&str> {
         self.get_ref(key).and_then(|value| value.as_str())
     }
 
-    pub fn all(&self) -> HashMap<&str, &Value> {
-        self.data
+    /// Converts this subset into a new session containing only the filtered data.
+    ///
+    /// The resulting session inherits the state of the parent session, with
+    /// the state transitioned to `Changed`.
+    pub fn into_session(self) -> Session {
+        let data = self
+            .data
             .iter()
-            .filter(|(key, _)| self.matches(key.as_ref()))
-            .map(|(key, value)| (key.as_ref(), value))
-            .collect()
+            .filter(|(key, _)| self.has(key.as_ref()))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect();
+
+        Session {
+            key: self.session_key.clone(),
+            state: self.state.transition(SessionState::Changed),
+            data,
+        }
     }
 }
 
@@ -209,6 +235,8 @@ impl Session {
             data: &self.data,
             keys,
             kind: SessionSubsetKind::Only,
+            state: self.state,
+            session_key: &self.key,
         }
     }
 
@@ -221,6 +249,8 @@ impl Session {
             data: &self.data,
             keys,
             kind: SessionSubsetKind::Except,
+            session_key: &self.key,
+            state: self.state,
         }
     }
 
@@ -411,7 +441,7 @@ mod tests {
         let keys = ["name", "age"];
         let value = session.only(&keys);
 
-        let all = value.all();
+        let all = value.into_session().all();
         assert_eq!(all.len(), 2);
 
         let name = *all.get("name").unwrap();
