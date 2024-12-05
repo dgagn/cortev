@@ -14,8 +14,8 @@ use tower_service::Service;
 
 use crate::{
     builder::BuildSession,
-    driver::{SessionData, SessionError, TokenExt},
-    Session, SessionState,
+    driver::{SessionError, TokenExt},
+    Session, SessionData, SessionState,
 };
 
 use super::driver::SessionDriver;

@@ -1,4 +1,4 @@
-use crate::driver::SessionData;
+use crate::SessionData;
 
 use super::{key::SessionKey, state::SessionState, Session};
 

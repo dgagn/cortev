@@ -1,7 +1,7 @@
 pub mod builder;
 pub mod driver;
 mod key;
-use driver::{generate_random_key, SessionData};
+use driver::generate_random_key;
 pub use key::SessionKey;
 
 pub mod middleware;
@@ -15,7 +15,9 @@ use axum_core::{
 };
 use http::{request, StatusCode};
 use state::Transition;
-use std::{borrow::Cow, convert::Infallible};
+use std::{borrow::Cow, collections::HashMap, convert::Infallible};
+
+pub(crate) type SessionData = HashMap<Cow<'static, str>, Value>;
 
 #[derive(Debug, Clone)]
 pub struct Session {
@@ -151,7 +153,6 @@ impl Session {
         self.data
             .iter()
             .filter(move |(key, _)| !keys.iter().any(|k| k.as_ref().eq(*key)))
-            .map(|(key, value)| (key, value))
     }
 
     pub fn pull<K>(mut self, key: K) -> (Self, Option<serde_json::Value>)

@@ -4,8 +4,8 @@ use std::{fmt, ops::Deref, sync::Arc};
 pub struct SessionKey(Arc<str>);
 
 impl SessionKey {
-    pub fn new<K: Into<String>>(key: K) -> Self {
-        Self(Arc::from(key.into()))
+    pub fn new<K: Into<Arc<str>>>(key: K) -> Self {
+        Self(key.into())
     }
 }
 

@@ -20,7 +20,7 @@ tower-service = "0.3.3"
 anyhow = "1.0.93"
 thiserror = "2.0.3"
 dashmap = { version = "6.1.0", optional = true }
-cookie = "0.18.1"
+cookie = { version = "0.18.1", features = ["percent-encode"] }
 
 [lints]
 workspace = true
