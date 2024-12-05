@@ -1,6 +1,6 @@
 use axum_core::{extract, response::IntoResponse, response::Response};
+use cookie::{time::Duration as CookieDuration, Cookie};
 use core::fmt;
-use cortev_cookie::{Cookie, Duration as CookieDuration};
 use http::{header, HeaderMap};
 use std::{
     borrow::Cow,
@@ -14,7 +14,7 @@ use tower_service::Service;
 
 use crate::{
     builder::BuildSession,
-    driver::{SessionData, SessionError},
+    driver::{SessionData, SessionError, TokenExt},
     Session, SessionState,
 };
 
@@ -127,7 +127,7 @@ where
         let kind = self.kind.clone();
         let future = Box::pin(async move {
             let session_key = match kind {
-                SessionKind::Cookie(ref id) => session_cookie(req.headers(), id.clone()),
+                SessionKind::Cookie(ref id) => session_cookie(req.headers(), id.to_owned()),
             };
 
             let maybe_session = if let Some(cookie) = session_key {
@@ -144,7 +144,7 @@ where
             let session = if let Some(session) = maybe_session {
                 session
             } else {
-                let data = SessionData::default();
+                let data = SessionData::session();
                 let key = try_into_response!(driver.create(data.clone()).await);
                 Session::builder(key).with_data(data).build()
             };
@@ -170,9 +170,7 @@ where
                 session_key
             };
 
-            // todo: Change set the cookie, but for now
             let cookie = match kind {
-                #[cfg(feature = "cookie")]
                 SessionKind::Cookie(id) => {
                     let mut cookie = Cookie::new(id, session_key.to_string());
                     cookie.set_http_only(true);

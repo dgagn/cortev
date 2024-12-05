@@ -1,5 +1,4 @@
 use axum::{
-    extract::Request,
     response::{IntoResponse, Redirect, Response},
     routing, Router,
 };
@@ -20,12 +19,16 @@ async fn theme(session: Session) -> String {
 }
 
 async fn login(session: Session) -> (Session, &'static str) {
-    let session = session.insert("user_id", 1).regenerate();
-    let session = session.regenerate_token();
+    let session = session.insert("user_id", 1);
+    let session = session.regenerate().regenerate_token();
     (session, "You are logged in!")
 }
 
 async fn dashboard(session: Session) -> Response {
+    let token = session.token();
+    if let Some(token) = token {
+        println!("Token: {}", token);
+    }
     let user_id: i32 = session.get("user_id").unwrap_or(0);
     if user_id != 1 {
         return "You are not logged in!".into_response();

@@ -253,7 +253,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum-core",
- "cortev-cookie",
+ "cookie",
  "dashmap",
  "http",
  "rand",

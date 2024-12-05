@@ -6,6 +6,7 @@ pub use key::SessionKey;
 
 pub mod middleware;
 mod state;
+use serde_json::Value;
 pub use state::SessionState;
 
 use axum_core::{
@@ -188,7 +189,7 @@ impl Session {
 
     pub fn regenerate_token(mut self) -> Self {
         let token = generate_random_key(40);
-        self.data.insert("_token".into(), token.into());
+        self.data.insert("_token".into(), Value::String(token));
         self.state = self.state.transition(SessionState::Changed);
         self
     }
