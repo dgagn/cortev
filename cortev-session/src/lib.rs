@@ -39,7 +39,7 @@ pub enum SessionSubsetKind {
 #[derive(Debug)]
 pub struct SessionSubset<'a, K> {
     /// Reference to the full session data.
-    data: &'a HashMap<Cow<'static, str>, Value>,
+    data: &'a SessionData,
     /// The keys used to filter the session data.
     keys: &'a [K],
     /// The kind of subset to create.
@@ -91,22 +91,24 @@ where
         self.get_ref(key).and_then(|value| value.as_str())
     }
 
+    /// Converts this subset into a new session data containing only the filtered data.
+    pub fn to_all(&self) -> SessionData {
+        self.data
+            .iter()
+            .filter(|(key, _)| self.has(key.as_ref()))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect()
+    }
+
     /// Converts this subset into a new session containing only the filtered data.
     ///
     /// The resulting session inherits the state of the parent session, with
     /// the state transitioned to `Changed`.
     pub fn into_session(self) -> Session {
-        let data = self
-            .data
-            .iter()
-            .filter(|(key, _)| self.has(key.as_ref()))
-            .map(|(key, value)| (key.clone(), value.clone()))
-            .collect();
-
         Session {
             key: self.session_key.clone(),
             state: self.state.transition(SessionState::Changed),
-            data,
+            data: self.to_all(),
         }
     }
 }
