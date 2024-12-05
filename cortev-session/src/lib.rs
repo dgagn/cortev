@@ -441,11 +441,18 @@ mod tests {
         let keys = ["name", "age"];
         let value = session.only(&keys);
 
-        let all = value.into_session().all();
+        let session = value.into_session();
+        let all = session.all();
         assert_eq!(all.len(), 2);
 
-        let name = *all.get("name").unwrap();
-        assert_eq!(name, &Value::String("John".into()));
+        let value = all.get("name").unwrap();
+        let name = session.get_str("name").unwrap();
+
+        let state = session.state();
+
+        assert_eq!(value, &Value::String("John".into()));
+        assert_eq!(name, "John");
+        assert_eq!(state, SessionState::Changed);
     }
 
     #[test]
