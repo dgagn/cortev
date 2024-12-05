@@ -81,11 +81,6 @@ pub enum SessionError {
     Unexpected(#[from] anyhow::Error),
 }
 
-pub trait ErrorContextExt<T> {
-    type Error;
-    fn session_context(self, context: impl Into<Cow<'static, str>>) -> Result<T, Self::Error>;
-}
-
 impl IntoResponse for SessionError {
     fn into_response(self) -> Response {
         match self {
