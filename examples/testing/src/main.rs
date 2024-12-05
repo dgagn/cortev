@@ -50,11 +50,7 @@ async fn main() {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let mut poolconfig = PoolConfig::new(0);
-    poolconfig.timeouts.wait = Some(Duration::from_secs(1));
-
-    let mut config = Config::from_url("redis://127.0.0.1:6379");
-    config.pool = Some(poolconfig);
+    let config = Config::from_url("redis://127.0.0.1:6379");
     let pool = config.create_pool(Some(Runtime::Tokio1)).unwrap();
 
     let driver = RedisDriver::builder(pool)
