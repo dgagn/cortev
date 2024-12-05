@@ -46,7 +46,7 @@ async fn logout(session: Session) -> (Session, Response) {
 
 #[tokio::main]
 async fn main() {
-    let config = deadpool_redis::Config::from_url("");
+    let config = deadpool_redis::Config::from_url("redis://127.0.0.1:6379");
     let pool = config.create_pool(Some(Runtime::Tokio1)).unwrap();
     let connection_kind = RedisConnectionKind::Pool(pool);
     let ttl = Duration::from_secs(60 * 60 * 120);
