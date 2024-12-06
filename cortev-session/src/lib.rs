@@ -18,6 +18,7 @@ use state::Transition;
 use std::{borrow::Cow, collections::HashMap, convert::Infallible};
 pub use subset::{SessionSubset, SessionSubsetKind};
 
+pub mod error;
 mod subset;
 
 pub(crate) type SessionData = HashMap<Cow<'static, str>, Value>;

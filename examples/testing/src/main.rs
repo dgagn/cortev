@@ -1,16 +1,20 @@
 use std::time::Duration;
 
 use axum::{
+    error_handling::{HandleError, HandleErrorLayer},
+    http::StatusCode,
     response::{IntoResponse, Response},
-    routing, Router,
+    routing, BoxError, Router,
 };
 pub use cortev::session::Session;
 use cortev::session::{
     driver::RedisDriver,
+    error::{self, Authorization, AuthorizationLayer},
     middleware::{SessionKind, SessionLayer},
 };
 use deadpool_redis::{Config, Runtime};
 use tokio::net::TcpListener;
+use tower::{Layer, ServiceBuilder};
 
 async fn handler() -> &'static str {
     "Hello, world!"
@@ -44,6 +48,12 @@ async fn logout(session: Session) -> (Session, &'static str) {
     (session, "You are logged out!")
 }
 
+async fn handle_error(error: BoxError) -> Response {
+    println!("Error: {:?}", error);
+
+    (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::fmt()
@@ -60,6 +70,9 @@ async fn main() {
 
     let kind = SessionKind::Cookie("id");
     let session_layer = SessionLayer::new(driver, kind);
+    let builder = ServiceBuilder::new()
+        .layer(HandleErrorLayer::new(handle_error))
+        .layer(AuthorizationLayer {});
 
     let tcp_listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
 
@@ -69,7 +82,7 @@ async fn main() {
         .route("/logout", routing::get(logout))
         .route("/login", routing::get(login))
         .route("/theme", routing::get(theme))
-        .layer(session_layer);
+        .layer(builder);
 
     axum::serve(tcp_listener, router).await.unwrap();
 }

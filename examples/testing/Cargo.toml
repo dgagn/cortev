@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.94"
 axum = { version = "0.7.9", features = ["macros"] }
 axum-macros = "0.4.2"
 cookie = { version = "0.18.1", features = ["private", "key-expansion"] }

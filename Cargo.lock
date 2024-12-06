@@ -293,6 +293,7 @@ dependencies = [
  "cookie",
  "dashmap",
  "deadpool-redis",
+ "futures",
  "http",
  "rand",
  "redis",
@@ -1419,6 +1420,7 @@ dependencies = [
 name = "testing"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "axum-macros",
  "cookie",
