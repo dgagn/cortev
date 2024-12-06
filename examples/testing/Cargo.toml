@@ -5,9 +5,11 @@ edition = "2021"
 
 [dependencies]
 axum = { version = "0.7.9", features = ["macros"] }
+axum-macros = "0.4.2"
 cookie = { version = "0.18.1", features = ["private", "key-expansion"] }
 cortev = { path = "../../cortev", features = ["session-memory"] }
 deadpool-redis = "0.18.0"
+thiserror = "2.0.4"
 tokio = { version = "1.41.1", features = ["full"] }
 tower = { version = "0.5.1", features = ["full"] }
 tracing = { version = "0.1.41", features = ["attributes"] }

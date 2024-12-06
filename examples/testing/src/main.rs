@@ -1,15 +1,15 @@
-use std::time::Duration;
+use std::{ops::Deref, time::Duration};
 
 use axum::{
+    debug_handler,
+    extract::FromRequestParts,
+    http::{request::Parts, StatusCode},
     response::{IntoResponse, Redirect, Response},
     routing, Router,
 };
 pub use cortev::session::Session;
-use cortev::session::{
-    driver::RedisDriver,
-    middleware::{SessionKind, SessionLayer},
-};
-use deadpool_redis::{Config, PoolConfig, Runtime};
+use cortev::session::{driver::RedisDriver, middleware::SessionKind, MissingSessionExtension};
+use deadpool_redis::{Config, Runtime};
 use tokio::net::TcpListener;
 
 async fn handler() -> &'static str {
@@ -39,9 +39,38 @@ async fn dashboard(session: Session) -> Response {
     format!("You are logged in as user {}", user_id).into_response()
 }
 
-async fn logout(session: Session) -> (Session, Response) {
+#[debug_handler]
+async fn logout(session: SessionExt) -> (Session, Response) {
     let session = session.invalidate().regenerate_token();
     (session, Redirect::to("/").into_response())
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("my error is happening for extension error")]
+pub struct MyError(#[from] MissingSessionExtension);
+
+impl IntoResponse for MyError {
+    fn into_response(self) -> Response {
+        (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SessionExt(Session);
+
+#[axum::async_trait]
+impl<S> FromRequestParts<S> for SessionExt
+where
+    S: Send + Sync + 'static,
+{
+    type Rejection = MyError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        match Session::from_request_parts(parts, state).await {
+            Ok(session) => Ok(Self(session)),
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
 #[tokio::main]
@@ -59,7 +88,7 @@ async fn main() {
         .build();
 
     let kind = SessionKind::Cookie("id");
-    let session_layer = SessionLayer::new(driver, kind);
+    //let session_layer = SessionLayer::new(driver, kind);
 
     let tcp_listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
 
@@ -68,8 +97,8 @@ async fn main() {
         .route("/dashboard", routing::get(dashboard))
         .route("/logout", routing::get(logout))
         .route("/login", routing::get(login))
-        .route("/theme", routing::get(theme))
-        .layer(session_layer);
+        .route("/theme", routing::get(theme));
+    //.layer(session_layer);
 
     axum::serve(tcp_listener, router).await.unwrap();
 }
