@@ -44,7 +44,7 @@ impl<S> Layer<S> for AuthorizationLayer {
 
 impl<S> Service<extract::Request> for Authorization<S>
 where
-    S: Service<extract::Request, Response = Response> + Send + Clone + Sync + 'static,
+    S: Service<extract::Request, Response = Response> + Send + Clone + 'static,
     S::Future: Send + 'static,
     S::Error: Into<BoxError>,
 {
