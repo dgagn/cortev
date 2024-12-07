@@ -49,7 +49,6 @@ impl fmt::Display for SessionKey {
 
 impl fmt::Debug for SessionKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // First 8 characters of the key
         write!(f, "{}...", &self.0[..16])
     }
 }
