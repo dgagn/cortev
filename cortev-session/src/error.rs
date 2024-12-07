@@ -62,8 +62,7 @@ impl IntoResponse for SessionError {
     }
 }
 
-#[derive(Debug, Default, thiserror::Error, Clone, Copy)]
-#[error("session not found")]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct DefaultErrorHandler;
 
 impl IntoErrorResponse for DefaultErrorHandler {
