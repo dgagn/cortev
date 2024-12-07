@@ -13,6 +13,7 @@ use cortev::session::{
     error::{IntoErrorResponse, SessionError, SessionMissingFromExt},
     ext::RequestSessionExt,
     middleware::SessionLayer,
+    CloneSession,
 };
 use deadpool_redis::{Config, PoolConfig, Runtime};
 use tokio::net::TcpListener;
@@ -61,10 +62,12 @@ impl IntoErrorResponse for HandleError {
     }
 }
 
-async fn middleware(request: Request, next: Next) -> Result<Response, SessionMissingFromExt> {
-    let value = request.try_session()?;
-
-    println!("took session is here {:?}", value);
+async fn middleware(
+    session: CloneSession,
+    request: Request,
+    next: Next,
+) -> Result<Response, SessionMissingFromExt> {
+    println!("took session is here {:?}", session.into_inner());
 
     let response = next.run(request).await;
 
