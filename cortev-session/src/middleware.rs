@@ -15,6 +15,7 @@ use tower_service::Service;
 use crate::{
     builder::BuildSession,
     driver::{SessionError, TokenExt},
+    error::IntoResponseError,
     Session, SessionData, SessionState,
 };
 
@@ -31,51 +32,77 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct SessionMiddleware<S, D: SessionDriver, C: Into<Cow<'static, str>>> {
+pub struct SessionMiddleware<S, D, C, H>
+where
+    D: SessionDriver,
+    C: Into<Cow<'static, str>>,
+    H: IntoResponseError,
+{
     inner: S,
     driver: D,
     kind: SessionKind<C>,
+    error_handler: Option<H>,
 }
 
-impl<S, D: SessionDriver, C: Into<Cow<'static, str>>> SessionMiddleware<S, D, C> {
-    pub fn new(inner: S, driver: D, kind: SessionKind<C>) -> Self {
+impl<S, D, C, H> SessionMiddleware<S, D, C, H>
+where
+    D: SessionDriver,
+    C: Into<Cow<'static, str>>,
+    H: IntoResponseError,
+{
+    pub fn new(inner: S, driver: D, kind: SessionKind<C>, handler: Option<H>) -> Self {
         Self {
             inner,
             driver,
             kind,
+            error_handler: handler,
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct SessionLayer<D: SessionDriver, C: Into<Cow<'static, str>>> {
+pub struct SessionLayer<D, C, H>
+where
+    D: SessionDriver,
+    C: Into<Cow<'static, str>>,
+    H: IntoResponseError,
+{
     driver: D,
     kind: SessionKind<C>,
+    error_handler: Option<H>,
 }
 
-impl<D: SessionDriver, C: Into<Cow<'static, str>>> SessionLayer<D, C> {
-    pub fn new(driver: D, kind: SessionKind<C>) -> Self {
-        Self { driver, kind }
+impl<D, C, H> SessionLayer<D, C, H>
+where
+    D: SessionDriver,
+    C: Into<Cow<'static, str>>,
+    H: IntoResponseError,
+{
+    pub fn new(driver: D, kind: SessionKind<C>, error_handler: Option<H>) -> Self {
+        Self {
+            driver,
+            kind,
+            error_handler,
+        }
     }
 }
 
-impl<S, D: SessionDriver + Clone, C: Into<Cow<'static, str>> + Clone> Layer<S>
-    for SessionLayer<D, C>
+impl<S, D, C, H> Layer<S> for SessionLayer<D, C, H>
+where
+    D: SessionDriver + Clone,
+    C: Into<Cow<'static, str>> + Clone,
+    H: IntoResponseError + Clone,
 {
-    type Service = SessionMiddleware<S, D, C>;
+    type Service = SessionMiddleware<S, D, C, H>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        SessionMiddleware::new(inner, self.driver.clone(), self.kind.clone())
+        SessionMiddleware::new(
+            inner,
+            self.driver.clone(),
+            self.kind.clone(),
+            self.error_handler.clone(),
+        )
     }
-}
-
-macro_rules! try_into_response {
-    ($result:expr) => {
-        match $result {
-            Ok(value) => value,
-            Err(err) => return err.into_response(),
-        }
-    };
 }
 
 #[cfg_attr(feature = "tracing", tracing::instrument(skip(headers, cookie_name)))]
@@ -100,7 +127,7 @@ pub fn session_cookie(
     value
 }
 
-impl<S, D, C> Service<extract::Request> for SessionMiddleware<S, D, C>
+impl<S, D, C, H> Service<extract::Request> for SessionMiddleware<S, D, C, H>
 where
     C: Into<Cow<'static, str>> + Clone + Send + 'static,
     S: Service<extract::Request, Response = axum_core::response::Response, Error = Infallible>
@@ -111,6 +138,7 @@ where
     S::Future: Send + 'static,
     S::Error: IntoResponse,
     S::Response: IntoResponse,
+    H: IntoResponseError<Error = SessionError> + Clone + Send + 'static,
 {
     type Response = Response;
     type Error = Infallible;
@@ -136,6 +164,7 @@ where
 
         let driver = self.driver.clone();
         let kind = self.kind.clone();
+        let error_handler = self.error_handler.clone();
         let future = Box::pin(async move {
             let session_key = match kind {
                 SessionKind::Cookie(ref id) => session_cookie(req.headers(), id.to_owned()),
@@ -154,7 +183,11 @@ where
                         #[cfg(feature = "tracing")]
                         tracing::error!("Error reading session: {:?}", err);
 
-                        return err.into_response();
+                        return if let Some(handler) = error_handler {
+                            handler.into_response_error(err)
+                        } else {
+                            err.into_response()
+                        };
                     }
                 }
             } else {
@@ -165,7 +198,16 @@ where
                 session
             } else {
                 let data = SessionData::session();
-                let key = try_into_response!(driver.create(data.clone()).await);
+                let key = match driver.create(data.clone()).await {
+                    Ok(value) => value,
+                    Err(err) => {
+                        return if let Some(handler) = error_handler {
+                            handler.into_response_error(err)
+                        } else {
+                            err.into_response()
+                        };
+                    }
+                };
                 Session::builder(key).with_data(data).build()
             };
 
@@ -173,7 +215,10 @@ where
 
             req.extensions_mut().insert(session);
 
-            let mut response = try_into_response!(ready_inner.call(req).await);
+            let mut response = match ready_inner.call(req).await {
+                Ok(response) => response,
+                Err(_err) => unreachable!(), // Infallible
+            };
 
             let extension = response.extensions_mut().remove::<Session>();
 
@@ -185,7 +230,19 @@ where
                     SessionState::Invalidated => driver.invalidate(key, data).await,
                     SessionState::Unchanged => Ok(key),
                 };
-                try_into_response!(session_key)
+                match session_key {
+                    Ok(value) => value,
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("Session error: {:?}", err);
+
+                        return if let Some(handler) = error_handler {
+                            handler.into_response_error(err)
+                        } else {
+                            err.into_response()
+                        };
+                    }
+                }
             } else {
                 #[cfg(feature = "tracing")]
                 tracing::debug!("Session not found in response extensions");

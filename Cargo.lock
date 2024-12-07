@@ -293,7 +293,6 @@ dependencies = [
  "cookie",
  "dashmap",
  "deadpool-redis",
- "futures",
  "http",
  "rand",
  "redis",

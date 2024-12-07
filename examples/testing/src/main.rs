@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use axum::{
-    error_handling::{HandleError, HandleErrorLayer},
+    error_handling::HandleErrorLayer,
     http::StatusCode,
     response::{IntoResponse, Response},
     routing, BoxError, Router,
@@ -9,12 +9,12 @@ use axum::{
 pub use cortev::session::Session;
 use cortev::session::{
     driver::RedisDriver,
-    error::{self, Authorization, AuthorizationLayer},
+    error::AuthorizationLayer,
     middleware::{SessionKind, SessionLayer},
 };
 use deadpool_redis::{Config, Runtime};
 use tokio::net::TcpListener;
-use tower::{Layer, ServiceBuilder};
+use tower::ServiceBuilder;
 
 async fn handler() -> &'static str {
     "Hello, world!"
@@ -70,9 +70,6 @@ async fn main() {
 
     let kind = SessionKind::Cookie("id");
     let session_layer = SessionLayer::new(driver, kind);
-    let builder = ServiceBuilder::new()
-        .layer(HandleErrorLayer::new(handle_error))
-        .layer(AuthorizationLayer {});
 
     let tcp_listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
 
@@ -81,8 +78,7 @@ async fn main() {
         .route("/dashboard", routing::get(dashboard))
         .route("/logout", routing::get(logout))
         .route("/login", routing::get(login))
-        .route("/theme", routing::get(theme))
-        .layer(builder);
+        .route("/theme", routing::get(theme));
 
     axum::serve(tcp_listener, router).await.unwrap();
 }

@@ -1,66 +1,21 @@
-use std::convert::Infallible;
+use axum_core::response::{IntoResponse, Response};
+use http::StatusCode;
 
-use axum_core::{extract, response::Response, BoxError};
-use futures::future::BoxFuture;
-use tower_layer::Layer;
-use tower_service::Service;
+use crate::driver::SessionError;
 
-#[derive(Debug, Clone)]
-pub struct Authorization<T> {
-    inner: T,
+pub trait IntoResponseError {
+    type Error: std::error::Error + Send + Sync + 'static;
+    fn into_response_error(self, error: Self::Error) -> Response;
 }
 
-impl<T> Authorization<T> {
-    pub fn new(inner: T) -> Self {
-        Self { inner }
-    }
+#[derive(Debug, Clone, Copy)]
+struct MyError;
 
-    /// Get a reference to the inner service
-    pub fn get_ref(&self) -> &T {
-        &self.inner
-    }
+impl IntoResponseError for MyError {
+    type Error = SessionError;
 
-    /// Get a mutable reference to the inner service
-    pub fn get_mut(&mut self) -> &mut T {
-        &mut self.inner
-    }
-
-    /// Consume `self`, returning the inner service
-    pub fn into_inner(self) -> T {
-        self.inner
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct AuthorizationLayer {}
-
-impl<S> Layer<S> for AuthorizationLayer {
-    type Service = Authorization<S>;
-
-    fn layer(&self, inner: S) -> Self::Service {
-        Authorization::new(inner)
-    }
-}
-
-impl<S> Service<extract::Request> for Authorization<S>
-where
-    S: Service<extract::Request, Response = Response> + Send + Clone + 'static,
-    S::Future: Send + 'static,
-    S::Error: Into<BoxError>,
-{
-    type Response = S::Response;
-    type Error = BoxError;
-    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
-
-    fn poll_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx).map_err(Into::into)
-    }
-
-    fn call(&mut self, req: extract::Request) -> Self::Future {
-        let mut inner = self.inner.clone();
-        Box::pin(async move { inner.call(req).await.map_err(Into::into) })
+    fn into_response_error(self, error: SessionError) -> Response {
+        tracing::error!("MyError {:?}", error);
+        (StatusCode::INTERNAL_SERVER_ERROR, "fudge").into_response()
     }
 }
