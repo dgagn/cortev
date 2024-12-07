@@ -49,6 +49,9 @@ impl fmt::Display for SessionKey {
 
 impl fmt::Debug for SessionKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.0.len() < 16 {
+            return self.0.fmt(f);
+        }
         write!(f, "{}..{}", &self.0[..8], &self.0[self.0.len() - 8..])
     }
 }
