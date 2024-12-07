@@ -1,4 +1,4 @@
-use std::{borrow::Cow, ops::ControlFlow, time::Duration};
+use std::time::Duration;
 
 use axum::{
     http::StatusCode,
@@ -8,12 +8,11 @@ use axum::{
 pub use cortev::session::Session;
 use cortev::session::{
     driver::RedisDriver,
-    error::{DefaultErrorHandler, IntoErrorResponse, SessionError},
-    middleware::{SessionKind, SessionLayer},
+    error::{IntoErrorResponse, SessionError},
+    middleware::SessionLayer,
 };
 use deadpool_redis::{Config, PoolConfig, Runtime};
 use tokio::net::TcpListener;
-use tower::ServiceBuilder;
 
 async fn handler() -> &'static str {
     "Hello, world!"
@@ -66,8 +65,8 @@ async fn main() {
         .init();
 
     let mut config = Config::from_url("redis://127.0.0.1:6379");
-    let mut poolconfig = PoolConfig::new(0);
-    poolconfig.timeouts.wait = Some(Duration::from_secs(1));
+    let poolconfig = PoolConfig::new(4);
+    //poolconfig.timeouts.wait = Some(Duration::from_secs(1));
     config.pool = Some(poolconfig);
     let pool = config.create_pool(Some(Runtime::Tokio1)).unwrap();
 
