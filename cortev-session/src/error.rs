@@ -94,9 +94,9 @@ pub(crate) fn log_error_chain(error: &dyn std::error::Error) -> String {
 
 #[derive(Debug, thiserror::Error)]
 #[error("Session extension is missing")]
-pub struct MissingSessionExtension;
+pub struct SessionMissingFromExt;
 
-impl IntoResponse for MissingSessionExtension {
+impl IntoResponse for SessionMissingFromExt {
     fn into_response(self) -> Response {
         (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
     }

@@ -1,14 +1,17 @@
-use std::time::Duration;
+use std::{error::Error, time::Duration};
 
 use axum::{
+    extract::Request,
     http::StatusCode,
+    middleware::{from_fn, Next},
     response::{IntoResponse, Response},
     routing, Router,
 };
 pub use cortev::session::Session;
 use cortev::session::{
     driver::RedisDriver,
-    error::{IntoErrorResponse, SessionError},
+    error::{IntoErrorResponse, SessionError, SessionMissingFromExt},
+    ext::RequestSessionExt,
     middleware::SessionLayer,
 };
 use deadpool_redis::{Config, PoolConfig, Runtime};
@@ -58,6 +61,16 @@ impl IntoErrorResponse for HandleError {
     }
 }
 
+async fn middleware(request: Request, next: Next) -> Result<Response, SessionMissingFromExt> {
+    let value = request.try_session()?;
+
+    println!("took session is here {:?}", value);
+
+    let response = next.run(request).await;
+
+    Ok(response)
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::fmt()
@@ -89,6 +102,7 @@ async fn main() {
         .route("/logout", routing::get(logout))
         .route("/login", routing::get(login))
         .route("/theme", routing::get(theme))
+        .layer(from_fn(middleware))
         .layer(session);
 
     axum::serve(tcp_listener, router).await.unwrap();

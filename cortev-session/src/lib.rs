@@ -1,8 +1,10 @@
 pub mod builder;
 pub mod driver;
+pub mod ext;
 mod key;
 use driver::generate_random_key;
-use error::MissingSessionExtension;
+use error::SessionMissingFromExt;
+use ext::RequestSessionExt;
 use http::request::Parts;
 pub use key::SessionKey;
 
@@ -16,7 +18,7 @@ use axum_core::{
     response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
 };
 use state::Transition;
-use std::{borrow::Cow, collections::HashMap, convert::Infallible};
+use std::{borrow::Cow, collections::HashMap, convert::Infallible, ops::Deref};
 pub use subset::{SessionSubset, SessionSubsetKind};
 
 pub mod error;
@@ -288,14 +290,10 @@ impl<S> FromRequestParts<S> for Session
 where
     S: Send + Sync + 'static,
 {
-    type Rejection = MissingSessionExtension;
+    type Rejection = SessionMissingFromExt;
 
     async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
-        parts
-            .extensions
-            .get::<Self>()
-            .cloned()
-            .ok_or(MissingSessionExtension)
+        parts.try_take_session()
     }
 }
 
