@@ -1,4 +1,4 @@
-use std::{error::Error, time::Duration};
+use std::time::Duration;
 
 use axum::{
     extract::Request,
@@ -11,7 +11,6 @@ pub use cortev::session::Session;
 use cortev::session::{
     driver::RedisDriver,
     error::{IntoErrorResponse, SessionError, SessionMissingFromExt},
-    ext::RequestSessionExt,
     middleware::SessionLayer,
     CloneSession,
 };
