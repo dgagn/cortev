@@ -78,8 +78,8 @@ async fn main() {
 
     let session = SessionLayer::builder()
         .with_driver(driver)
-        .with_error_handler(DefaultErrorHandler)
         .with_cookie("id")
+        .with_error_handler(HandleError)
         .build();
 
     let tcp_listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
