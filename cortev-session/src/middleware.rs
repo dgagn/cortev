@@ -14,7 +14,7 @@ use tower_service::Service;
 
 use crate::{
     builder::BuildSession,
-    driver::TokenExt,
+    driver::{NullDriver, TokenExt},
     error::{DefaultErrorHandler, IntoErrorResponse, SessionError},
     Session, SessionData, SessionState,
 };
@@ -66,15 +66,13 @@ where
     error_handler: H,
 }
 
-impl<D, H> SessionLayer<D, DefaultErrorHandler>
-where
-    D: SessionDriver,
-{
-    pub fn builder(driver: D) -> SessionLayerBuilder<D, H> {
+impl SessionLayer<NullDriver, DefaultErrorHandler> {
+    pub fn builder() -> SessionLayerBuilder<NullDriver, DefaultErrorHandler> {
         SessionLayerBuilder {
-            driver,
+            driver: NullDriver::new(),
             kind: SessionKind::Cookie(Cow::Borrowed("id")),
             error_handler: DefaultErrorHandler,
+            _marker: std::marker::PhantomData,
         }
     }
 }
@@ -94,7 +92,13 @@ where
 }
 
 #[derive(Debug)]
-pub struct SessionLayerBuilder<D, H>
+pub struct DriverUnset;
+
+#[derive(Debug)]
+pub struct DriverSet;
+
+#[derive(Debug)]
+pub struct SessionLayerBuilder<D, H, DriverState = DriverUnset>
 where
     D: SessionDriver,
     H: IntoErrorResponse,
@@ -102,22 +106,27 @@ where
     driver: D,
     kind: SessionKind,
     error_handler: H,
+    _marker: std::marker::PhantomData<DriverState>,
 }
 
-impl<D, H> SessionLayerBuilder<D, H>
+impl<D, H, DriverState> SessionLayerBuilder<D, H, DriverState>
 where
     D: SessionDriver,
     H: IntoErrorResponse<Error = SessionError>,
 {
-    fn with_kind(self, kind: SessionKind) -> SessionLayerBuilder<D, H> {
+    fn with_kind(self, kind: SessionKind) -> SessionLayerBuilder<D, H, DriverState> {
         SessionLayerBuilder {
             driver: self.driver,
             kind,
             error_handler: self.error_handler,
+            _marker: std::marker::PhantomData,
         }
     }
 
-    pub fn with_error_handler<HState>(self, handler: HState) -> SessionLayerBuilder<D, HState>
+    pub fn with_error_handler<HState>(
+        self,
+        handler: HState,
+    ) -> SessionLayerBuilder<D, HState, DriverState>
     where
         HState: IntoErrorResponse<Error = SessionError>,
     {
@@ -125,18 +134,43 @@ where
             driver: self.driver,
             kind: self.kind,
             error_handler: handler,
+            _marker: std::marker::PhantomData,
         }
     }
 
-    pub fn with_cookie<C>(self, name: C) -> SessionLayerBuilder<D, H>
+    pub fn with_cookie<C>(self, name: C) -> SessionLayerBuilder<D, H, DriverState>
     where
         C: Into<Cow<'static, str>>,
     {
         self.with_kind(SessionKind::Cookie(name.into()))
     }
+}
 
+impl<D, H> SessionLayerBuilder<D, H, DriverSet>
+where
+    D: SessionDriver,
+    H: IntoErrorResponse<Error = SessionError>,
+{
     pub fn build(self) -> SessionLayer<D, H> {
         SessionLayer::new(self.driver, self.kind, self.error_handler)
+    }
+}
+
+impl<D, H> SessionLayerBuilder<D, H, DriverUnset>
+where
+    D: SessionDriver,
+    H: IntoErrorResponse<Error = SessionError>,
+{
+    pub fn with_driver<DState>(self, driver: DState) -> SessionLayerBuilder<DState, H, DriverSet>
+    where
+        DState: SessionDriver,
+    {
+        SessionLayerBuilder {
+            driver,
+            kind: self.kind,
+            error_handler: self.error_handler,
+            _marker: std::marker::PhantomData::<DriverSet>,
+        }
     }
 }
 

@@ -76,10 +76,8 @@ async fn main() {
         .with_prefix("session:")
         .build();
 
-    let kind = SessionKind::Cookie(Cow::Borrowed("id"));
-    //let session_layer = SessionLayer::new(driver, kind, None);
-
-    let builder = SessionLayer::builder(driver)
+    let session = SessionLayer::builder()
+        .with_driver(driver)
         .with_error_handler(DefaultErrorHandler)
         .with_cookie("id")
         .build();
@@ -92,7 +90,7 @@ async fn main() {
         .route("/logout", routing::get(logout))
         .route("/login", routing::get(login))
         .route("/theme", routing::get(theme))
-        .layer(builder);
+        .layer(session);
 
     axum::serve(tcp_listener, router).await.unwrap();
 }

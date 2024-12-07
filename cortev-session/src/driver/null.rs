@@ -5,6 +5,12 @@ use super::{SessionData, SessionDriver, SessionResult};
 #[derive(Debug, Default, Clone)]
 pub struct NullDriver {}
 
+impl NullDriver {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
 impl SessionDriver for NullDriver {
     async fn read(&self, key: SessionKey) -> SessionResult<Option<Session>> {
         let session = Session::builder(key)
