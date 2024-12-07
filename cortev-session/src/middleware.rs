@@ -173,12 +173,7 @@ where
             let maybe_session = if let Some(cookie) = session_key {
                 let key = cookie.value();
                 match driver.read(key.into()).await {
-                    Ok(session) => Some(session),
-                    Err(SessionError::NotFound) => {
-                        #[cfg(feature = "tracing")]
-                        tracing::debug!("Session not found");
-                        None
-                    }
+                    Ok(session) => session,
                     Err(err) => {
                         #[cfg(feature = "tracing")]
                         tracing::error!("Error reading session: {:?}", err);

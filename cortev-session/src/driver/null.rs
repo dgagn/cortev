@@ -6,11 +6,11 @@ use super::{SessionData, SessionDriver, SessionResult};
 pub struct NullDriver {}
 
 impl SessionDriver for NullDriver {
-    async fn read(&self, key: SessionKey) -> SessionResult<Session> {
+    async fn read(&self, key: SessionKey) -> SessionResult<Option<Session>> {
         let session = Session::builder(key)
             .with_data(SessionData::default())
             .build();
-        Ok(session)
+        Ok(Some(session))
     }
 
     async fn write(&self, key: SessionKey, _data: super::SessionData) -> SessionResult<SessionKey> {

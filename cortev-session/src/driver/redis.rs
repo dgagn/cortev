@@ -175,7 +175,7 @@ impl RedisDriver {
 
 impl SessionDriver for RedisDriver {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self)))]
-    async fn read(&self, key: SessionKey) -> SessionResult<Session> {
+    async fn read(&self, key: SessionKey) -> SessionResult<Option<Session>> {
         #[cfg(feature = "tracing")]
         tracing::debug!("Reading the session");
 
@@ -197,11 +197,12 @@ impl SessionDriver for RedisDriver {
 
             #[cfg(feature = "tracing")]
             tracing::debug!("Session read successfully");
-            Ok(session)
+            Ok(Some(session))
         } else {
             #[cfg(feature = "tracing")]
             tracing::warn!("Session not found");
-            Err(SessionError::NotFound)
+
+            Ok(None)
         }
     }
 

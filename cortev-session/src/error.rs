@@ -1,21 +1,18 @@
-use axum_core::response::{IntoResponse, Response};
-use http::StatusCode;
-
-use crate::driver::SessionError;
-
-#[derive(Debug, Clone, Copy)]
-struct MyError;
+use axum_core::response::Response;
 
 pub trait IntoErrorResponse {
     type Error: std::error::Error + Send + Sync + 'static;
     fn into_error_response(self, error: Self::Error) -> Response;
 }
 
-impl IntoErrorResponse for MyError {
-    type Error = SessionError;
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[error("An error occurred")]
+pub struct DefaultErrorResponder;
 
-    fn into_error_response(self, error: SessionError) -> Response {
-        tracing::error!("MyError {:?}", error);
-        (StatusCode::INTERNAL_SERVER_ERROR, "fudge").into_response()
+impl IntoErrorResponse for DefaultErrorResponder {
+    type Error = std::convert::Infallible;
+
+    fn into_error_response(self, _error: Self::Error) -> Response {
+        todo!()
     }
 }

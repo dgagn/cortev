@@ -53,7 +53,7 @@ struct HandleError;
 impl IntoErrorResponse for HandleError {
     type Error = SessionError;
 
-    fn into_error_response(self, error: SessionError) -> Response {
+    fn into_error_response(self, _error: SessionError) -> Response {
         (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
     }
 }

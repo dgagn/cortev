@@ -23,11 +23,9 @@ impl Default for MemoryDriver {
 }
 
 impl SessionDriver for MemoryDriver {
-    async fn read(&self, key: SessionKey) -> SessionResult<Session> {
+    async fn read(&self, key: SessionKey) -> SessionResult<Option<Session>> {
         let session = self.sessions.get(&key);
-        let session = session
-            .map(|session| session.value().to_owned())
-            .ok_or(SessionError::NotFound)?;
+        let session = session.map(|session| session.value().to_owned());
         Ok(session)
     }
 

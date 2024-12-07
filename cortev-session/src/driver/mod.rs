@@ -93,7 +93,7 @@ impl IntoResponse for SessionError {
 }
 
 pub trait SessionDriver: Sync {
-    fn read(&self, key: SessionKey) -> impl Future<Output = SessionResult<Session>> + Send;
+    fn read(&self, key: SessionKey) -> impl Future<Output = SessionResult<Option<Session>>> + Send;
     fn write(
         &self,
         key: SessionKey,
