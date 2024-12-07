@@ -1,11 +1,8 @@
-use anyhow::Context;
-use axum_core::response::{IntoResponse, Response};
-use http::StatusCode;
 use rand::distributions::{Alphanumeric, DistString};
 use serde_json::Value;
 use std::{borrow::Cow, future::Future, time::Duration};
 
-use crate::SessionData;
+use crate::{error::SessionError, SessionData};
 
 use super::{key::SessionKey, Session};
 
@@ -22,10 +19,6 @@ impl TokenExt for SessionData {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("failed to serialize session data")]
-pub struct ToJsonError(#[from] serde_json::Error);
-
 #[cfg(feature = "redis")]
 pub(crate) trait ToJson {
     fn to_json(&self) -> SessionResult<String>;
@@ -34,7 +27,7 @@ pub(crate) trait ToJson {
 #[cfg(feature = "redis")]
 impl ToJson for SessionData {
     fn to_json(&self) -> SessionResult<String> {
-        let value = serde_json::to_string(&self).context("failed to serialize session data")?;
+        let value = serde_json::to_string(&self).map_err(SessionError::SerializeJson)?;
         Ok(value)
     }
 }
@@ -49,7 +42,7 @@ pub(crate) trait FromJson {
 #[cfg(feature = "redis")]
 impl FromJson for SessionData {
     fn from_json(value: &str) -> SessionResult<Self> {
-        let value = serde_json::from_str(value).context("failed to deserialize session data")?;
+        let value = serde_json::from_str(value).map_err(SessionError::DeserializeJson)?;
         Ok(value)
     }
 }
@@ -71,26 +64,6 @@ pub use redis::{RedisConnectionKind, RedisDriver};
 pub use null::NullDriver;
 
 type SessionResult<T> = Result<T, SessionError>;
-
-#[derive(Debug, thiserror::Error)]
-pub enum SessionError {
-    #[error("session was not found")]
-    NotFound,
-
-    #[error(transparent)]
-    Unexpected(#[from] anyhow::Error),
-}
-
-impl IntoResponse for SessionError {
-    fn into_response(self) -> Response {
-        match self {
-            SessionError::NotFound => {
-                (StatusCode::NOT_FOUND, "session was not found").into_response()
-            }
-            _ => (StatusCode::INTERNAL_SERVER_ERROR, "unexpected error").into_response(),
-        }
-    }
-}
 
 pub trait SessionDriver: Sync {
     fn read(&self, key: SessionKey) -> impl Future<Output = SessionResult<Option<Session>>> + Send;

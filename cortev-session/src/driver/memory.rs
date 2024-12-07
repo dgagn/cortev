@@ -5,7 +5,7 @@ use dashmap::DashMap;
 
 use crate::{builder::BuildSession, key::SessionKey, Session};
 
-use super::{SessionData, SessionDriver, SessionError, SessionResult};
+use super::{SessionData, SessionDriver, SessionResult};
 
 #[derive(Debug, Clone)]
 pub struct MemoryDriver {

@@ -5,11 +5,13 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Context;
 use deadpool_redis::Pool;
 use redis::{cmd, AsyncCommands, FromRedisValue, RedisError};
 
-use crate::{builder::BuildSession, driver::SessionError, Session, SessionData, SessionKey};
+use crate::{
+    builder::BuildSession, driver::SessionError, error::SessionErrorKind, Session, SessionData,
+    SessionKey,
+};
 
 use super::{generate_random_key, FromJson, SessionDriver, SessionResult, ToJson};
 
@@ -143,6 +145,7 @@ impl RedisDriver {
         }
         #[cfg(feature = "tracing")]
         tracing::error!("Retry loop exited without success or error");
+
         // Unreachable in theory
         Err(RedisError::from((
             redis::ErrorKind::IoError,
@@ -157,15 +160,9 @@ impl RedisDriver {
                 #[cfg(feature = "tracing")]
                 tracing::debug!("Getting a connection from the pool...");
 
-                let connection = pool
-                    .get()
-                    .await
-                    .with_context(|| "cannot get a connection from the pool")?;
+                let connection = pool.get().await.map_err(SessionError::AcquireConnection)?;
 
-                let value = self
-                    .retry::<T>(connection, cmd)
-                    .await
-                    .with_context(|| "cannot query the redis connection")?;
+                let value = self.retry::<T>(connection, cmd).await?;
 
                 Ok::<T, SessionError>(value)
             }
@@ -185,18 +182,22 @@ impl SessionDriver for RedisDriver {
         let command = command.arg(&prefixed_key).arg("EX").arg(self.ttl.as_secs());
 
         let command = RedisCommand::Command(command);
-        let value: Option<String> = self
-            .query(command)
-            .await
-            .with_context(|| format!("cannot read session from key {}", key))?;
+        let value: Option<String> =
+            self.query(command)
+                .await
+                .map_err(|source| SessionError::SessionKindError {
+                    source: Box::new(source),
+                    key: key.clone(),
+                    kind: SessionErrorKind::Read,
+                })?;
 
         if let Some(value) = value {
-            let session = SessionData::from_json(&value)
-                .with_context(|| format!("cannot deserialize session data from key {}", key))?;
+            let session = SessionData::from_json(&value)?;
             let session = Session::builder(key).with_data(session).build();
 
             #[cfg(feature = "tracing")]
             tracing::debug!("Session read successfully");
+
             Ok(Some(session))
         } else {
             #[cfg(feature = "tracing")]
@@ -215,7 +216,11 @@ impl SessionDriver for RedisDriver {
 
         let data = data
             .to_json()
-            .with_context(|| format!("cannot serialize session data to key {}", key))?;
+            .map_err(|source| SessionError::SessionKindError {
+                source: Box::new(source),
+                key: key.clone(),
+                kind: SessionErrorKind::Write,
+            })?;
 
         let mut command = cmd("SET");
         let command = command
@@ -228,7 +233,11 @@ impl SessionDriver for RedisDriver {
         let _: () = self
             .query(command)
             .await
-            .with_context(|| format!("cannot write session to key {}", key))?;
+            .map_err(|source| SessionError::SessionKindError {
+                source: Box::new(source),
+                key: key.clone(),
+                kind: SessionErrorKind::Write,
+            })?;
 
         #[cfg(feature = "tracing")]
         tracing::info!("Session written successfully");
@@ -245,7 +254,11 @@ impl SessionDriver for RedisDriver {
         let _: () = self
             .query(command)
             .await
-            .with_context(|| format!("cannot destroy session from key {}", key))?;
+            .map_err(|source| SessionError::SessionKindError {
+                source: Box::new(source),
+                key: key.clone(),
+                kind: SessionErrorKind::Destroy,
+            })?;
 
         #[cfg(feature = "tracing")]
         tracing::info!("Session destroyed");
@@ -262,9 +275,7 @@ impl SessionDriver for RedisDriver {
         tracing::debug!("Regenerating session");
         let old_prefixed_key = self.prefixed_key(&old_key);
 
-        let data = data
-            .to_json()
-            .with_context(|| format!("cannot serialize session data to key {}", old_key))?;
+        let data = data.to_json()?;
         let new_key = generate_random_key(64);
         let prefixed_new_key = self.prefixed_key(&new_key);
         let mut pipeline = redis::pipe();
@@ -276,12 +287,17 @@ impl SessionDriver for RedisDriver {
         let _: () = self
             .query(command)
             .await
-            .with_context(|| format!("cannot regenerate session from key {}", old_key))?;
+            .map_err(|source| SessionError::SessionKindError {
+                source: Box::new(source),
+                key: old_key.clone(),
+                kind: SessionErrorKind::Regenerate,
+            })?;
 
         let session_key = SessionKey::from(new_key);
 
         #[cfg(feature = "tracing")]
         tracing::info!("Session regenerated successfully to {:?}", session_key);
+
         Ok(session_key)
     }
 
@@ -292,12 +308,7 @@ impl SessionDriver for RedisDriver {
 
         let prefixed_key = self.prefixed_key(&key);
 
-        let data = data.to_json().with_context(|| {
-            format!(
-                "cannot serialize session data to key {} for invalidation",
-                key
-            )
-        })?;
+        let data = data.to_json()?;
         let new_key = generate_random_key(64);
         let prefixed_new_key = self.prefixed_key(&new_key);
         let mut pipeline = redis::pipe();
@@ -309,7 +320,11 @@ impl SessionDriver for RedisDriver {
         let _: () = self
             .query(command)
             .await
-            .with_context(|| format!("cannot invalidate session from key {}", key))?;
+            .map_err(|source| SessionError::SessionKindError {
+                source: Box::new(source),
+                key: key.clone(),
+                kind: SessionErrorKind::Invalidate,
+            })?;
 
         let session_key = SessionKey::from(new_key);
 

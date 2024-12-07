@@ -2,6 +2,8 @@ pub mod builder;
 pub mod driver;
 mod key;
 use driver::generate_random_key;
+use error::MissingSessionExtension;
+use http::request::Parts;
 pub use key::SessionKey;
 
 pub mod middleware;
@@ -13,7 +15,6 @@ use axum_core::{
     extract::FromRequestParts,
     response::{IntoResponse, IntoResponseParts, Response, ResponseParts},
 };
-use http::{request, StatusCode};
 use state::Transition;
 use std::{borrow::Cow, collections::HashMap, convert::Infallible};
 pub use subset::{SessionSubset, SessionSubsetKind};
@@ -282,16 +283,6 @@ impl IntoResponse for Session {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-#[error("Session extension is missing")]
-pub struct MissingSessionExtension;
-
-impl IntoResponse for MissingSessionExtension {
-    fn into_response(self) -> Response {
-        (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
-    }
-}
-
 #[async_trait::async_trait]
 impl<S> FromRequestParts<S> for Session
 where
@@ -299,10 +290,7 @@ where
 {
     type Rejection = MissingSessionExtension;
 
-    async fn from_request_parts(
-        parts: &mut request::Parts,
-        _: &S,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
         parts
             .extensions
             .get::<Self>()

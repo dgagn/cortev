@@ -14,8 +14,8 @@ use tower_service::Service;
 
 use crate::{
     builder::BuildSession,
-    driver::{SessionError, TokenExt},
-    error::IntoErrorResponse,
+    driver::TokenExt,
+    error::{IntoErrorResponse, SessionError},
     Session, SessionData, SessionState,
 };
 
@@ -176,7 +176,7 @@ where
                     Ok(session) => session,
                     Err(err) => {
                         #[cfg(feature = "tracing")]
-                        tracing::error!("Error reading session: {:?}", err);
+                        tracing::error!(error = %crate::error::log_error_chain(&err));
 
                         return if let Some(handler) = error_handler {
                             handler.into_error_response(err)
@@ -196,6 +196,9 @@ where
                 let key = match driver.create(data.clone()).await {
                     Ok(value) => value,
                     Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!(error = %crate::error::log_error_chain(&err));
+
                         return if let Some(handler) = error_handler {
                             handler.into_error_response(err)
                         } else {
@@ -219,6 +222,10 @@ where
 
             let session_key = if let Some(session) = extension {
                 let (key, state, data) = session.into_parts();
+
+                #[cfg(feature = "tracing")]
+                tracing::debug!("Session state {}", state);
+
                 let session_key = match state {
                     SessionState::Changed => driver.write(key, data).await,
                     SessionState::Regenerated => driver.regenerate(key, data).await,
@@ -229,7 +236,7 @@ where
                     Ok(value) => value,
                     Err(err) => {
                         #[cfg(feature = "tracing")]
-                        tracing::error!("Session error: {:?}", err);
+                        tracing::error!(error = %crate::error::log_error_chain(&err));
 
                         return if let Some(handler) = error_handler {
                             handler.into_error_response(err)

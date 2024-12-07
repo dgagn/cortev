@@ -28,6 +28,18 @@ impl Transition<SessionState> for SessionState {
     }
 }
 
+impl core::fmt::Display for SessionState {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let lowercase = match self {
+            SessionState::Unchanged => "unchanged",
+            SessionState::Changed => "changed",
+            SessionState::Regenerated => "regenerated",
+            SessionState::Invalidated => "invalidated",
+        };
+        write!(f, "{}", lowercase)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
