@@ -297,6 +297,36 @@ where
     }
 }
 
+#[derive(Debug)]
+pub struct CloneSession(Session);
+
+impl Deref for CloneSession {
+    type Target = Session;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl CloneSession {
+    pub fn into_inner(self) -> Session {
+        self.0
+    }
+}
+
+#[async_trait::async_trait]
+impl<S> FromRequestParts<S> for CloneSession
+where
+    S: Send + Sync + 'static,
+{
+    type Rejection = SessionMissingFromExt;
+
+    async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
+        let session = parts.try_session()?;
+        Ok(Self(session))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
