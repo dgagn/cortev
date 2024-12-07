@@ -53,7 +53,11 @@ impl IntoResponse for SessionError {
     fn into_response(self) -> Response {
         #[allow(clippy::match_single_binding)]
         match self {
-            _ => (StatusCode::INTERNAL_SERVER_ERROR, "unexpected error").into_response(),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "500 Internal Server Error",
+            )
+                .into_response(),
         }
     }
 }
