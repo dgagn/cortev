@@ -62,6 +62,18 @@ impl IntoResponse for SessionError {
     }
 }
 
+#[derive(Debug, Default, thiserror::Error, Clone, Copy)]
+#[error("session not found")]
+pub struct DefaultErrorHandler;
+
+impl IntoErrorResponse for DefaultErrorHandler {
+    type Error = SessionError;
+
+    fn into_error_response(self, error: Self::Error) -> Response {
+        error.into_response()
+    }
+}
+
 #[cfg(feature = "tracing")]
 pub(crate) fn log_error_chain(error: &dyn std::error::Error) -> String {
     let mut message = error.to_string();

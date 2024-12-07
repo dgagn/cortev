@@ -15,7 +15,7 @@ use tower_service::Service;
 use crate::{
     builder::BuildSession,
     driver::TokenExt,
-    error::{IntoErrorResponse, SessionError},
+    error::{DefaultErrorHandler, IntoErrorResponse, SessionError},
     Session, SessionData, SessionState,
 };
 
@@ -24,33 +24,28 @@ use super::driver::SessionDriver;
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 #[derive(Debug, Clone)]
-pub enum SessionKind<C>
-where
-    C: Into<Cow<'static, str>>,
-{
-    Cookie(C),
+pub enum SessionKind {
+    Cookie(Cow<'static, str>),
 }
 
 #[derive(Debug, Clone)]
-pub struct SessionMiddleware<S, D, C, H>
+pub struct SessionMiddleware<S, D, H>
 where
     D: SessionDriver,
-    C: Into<Cow<'static, str>>,
     H: IntoErrorResponse,
 {
     inner: S,
     driver: D,
-    kind: SessionKind<C>,
-    error_handler: Option<H>,
+    kind: SessionKind,
+    error_handler: H,
 }
 
-impl<S, D, C, H> SessionMiddleware<S, D, C, H>
+impl<S, D, H> SessionMiddleware<S, D, H>
 where
     D: SessionDriver,
-    C: Into<Cow<'static, str>>,
     H: IntoErrorResponse,
 {
-    pub fn new(inner: S, driver: D, kind: SessionKind<C>, handler: Option<H>) -> Self {
+    pub fn new(inner: S, driver: D, kind: SessionKind, handler: H) -> Self {
         Self {
             inner,
             driver,
@@ -61,24 +56,35 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct SessionLayer<D, C, H>
+pub struct SessionLayer<D, H>
 where
     D: SessionDriver,
-    C: Into<Cow<'static, str>>,
     H: IntoErrorResponse,
 {
     driver: D,
-    kind: SessionKind<C>,
-    error_handler: Option<H>,
+    kind: SessionKind,
+    error_handler: H,
 }
 
-impl<D, C, H> SessionLayer<D, C, H>
+impl<D, H> SessionLayer<D, DefaultErrorHandler>
 where
     D: SessionDriver,
-    C: Into<Cow<'static, str>>,
+{
+    pub fn builder(driver: D) -> SessionLayerBuilder<D, H> {
+        SessionLayerBuilder {
+            driver,
+            kind: SessionKind::Cookie(Cow::Borrowed("id")),
+            error_handler: DefaultErrorHandler,
+        }
+    }
+}
+
+impl<D, H> SessionLayer<D, H>
+where
+    D: SessionDriver,
     H: IntoErrorResponse,
 {
-    pub fn new(driver: D, kind: SessionKind<C>, error_handler: Option<H>) -> Self {
+    pub fn new(driver: D, kind: SessionKind, error_handler: H) -> Self {
         Self {
             driver,
             kind,
@@ -87,13 +93,59 @@ where
     }
 }
 
-impl<S, D, C, H> Layer<S> for SessionLayer<D, C, H>
+#[derive(Debug)]
+pub struct SessionLayerBuilder<D, H>
+where
+    D: SessionDriver,
+    H: IntoErrorResponse,
+{
+    driver: D,
+    kind: SessionKind,
+    error_handler: H,
+}
+
+impl<D, H> SessionLayerBuilder<D, H>
+where
+    D: SessionDriver,
+    H: IntoErrorResponse<Error = SessionError>,
+{
+    fn with_kind(self, kind: SessionKind) -> SessionLayerBuilder<D, H> {
+        SessionLayerBuilder {
+            driver: self.driver,
+            kind,
+            error_handler: self.error_handler,
+        }
+    }
+
+    pub fn with_error_handler<HState>(self, handler: HState) -> SessionLayerBuilder<D, HState>
+    where
+        HState: IntoErrorResponse<Error = SessionError>,
+    {
+        SessionLayerBuilder {
+            driver: self.driver,
+            kind: self.kind,
+            error_handler: handler,
+        }
+    }
+
+    pub fn with_cookie<C>(self, name: C) -> SessionLayerBuilder<D, H>
+    where
+        C: Into<Cow<'static, str>>,
+    {
+        self.with_kind(SessionKind::Cookie(name.into()))
+    }
+
+    pub fn build(self) -> SessionLayer<D, H> {
+        SessionLayer::new(self.driver, self.kind, self.error_handler)
+    }
+}
+
+impl<S, D, H> Layer<S> for SessionLayer<D, H>
 where
     D: SessionDriver + Clone,
-    C: Into<Cow<'static, str>> + Clone,
     H: IntoErrorResponse + Clone,
 {
-    type Service = SessionMiddleware<S, D, C, H>;
+    type Service = SessionMiddleware<S, D, H>;
 
     fn layer(&self, inner: S) -> Self::Service {
         SessionMiddleware::new(
@@ -127,9 +179,8 @@ pub fn session_cookie(
     value
 }
 
-impl<S, D, C, H> Service<extract::Request> for SessionMiddleware<S, D, C, H>
+impl<S, D, H> Service<extract::Request> for SessionMiddleware<S, D, H>
 where
-    C: Into<Cow<'static, str>> + Clone + Send + 'static,
     S: Service<extract::Request, Response = axum_core::response::Response, Error = Infallible>
         + Clone
         + Send
@@ -164,10 +215,10 @@ where
 
         let driver = self.driver.clone();
         let kind = self.kind.clone();
-        let error_handler = self.error_handler.clone();
+        let handler = self.error_handler.clone();
         let future = Box::pin(async move {
             let session_key = match kind {
-                SessionKind::Cookie(ref id) => session_cookie(req.headers(), id.to_owned()),
+                SessionKind::Cookie(ref id) => session_cookie(req.headers(), id.clone()),
             };
 
             let maybe_session = if let Some(cookie) = session_key {
@@ -178,11 +229,7 @@ where
                         #[cfg(feature = "tracing")]
                         tracing::error!(error = %crate::error::log_error_chain(&err));
 
-                        return if let Some(handler) = error_handler {
-                            handler.into_error_response(err)
-                        } else {
-                            err.into_response()
-                        };
+                        return handler.into_error_response(err);
                     }
                 }
             } else {
@@ -199,11 +246,7 @@ where
                         #[cfg(feature = "tracing")]
                         tracing::error!(error = %crate::error::log_error_chain(&err));
 
-                        return if let Some(handler) = error_handler {
-                            handler.into_error_response(err)
-                        } else {
-                            err.into_response()
-                        };
+                        return handler.into_error_response(err);
                     }
                 };
                 Session::builder(key).with_data(data).build()
@@ -238,11 +281,7 @@ where
                         #[cfg(feature = "tracing")]
                         tracing::error!(error = %crate::error::log_error_chain(&err));
 
-                        return if let Some(handler) = error_handler {
-                            handler.into_error_response(err)
-                        } else {
-                            err.into_response()
-                        };
+                        return handler.into_error_response(err);
                     }
                 }
             } else {

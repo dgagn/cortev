@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{borrow::Cow, ops::ControlFlow, time::Duration};
 
 use axum::{
     http::StatusCode,
@@ -8,11 +8,12 @@ use axum::{
 pub use cortev::session::Session;
 use cortev::session::{
     driver::RedisDriver,
-    error::{IntoErrorResponse, SessionError},
+    error::{DefaultErrorHandler, IntoErrorResponse, SessionError},
     middleware::{SessionKind, SessionLayer},
 };
 use deadpool_redis::{Config, PoolConfig, Runtime};
 use tokio::net::TcpListener;
+use tower::ServiceBuilder;
 
 async fn handler() -> &'static str {
     "Hello, world!"
@@ -75,8 +76,13 @@ async fn main() {
         .with_prefix("session:")
         .build();
 
-    let kind = SessionKind::Cookie("id");
-    let session_layer = SessionLayer::new(driver, kind, Some(HandleError));
+    let kind = SessionKind::Cookie(Cow::Borrowed("id"));
+    //let session_layer = SessionLayer::new(driver, kind, None);
+
+    let builder = SessionLayer::builder(driver)
+        .with_error_handler(DefaultErrorHandler)
+        .with_cookie("id")
+        .build();
 
     let tcp_listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
 
@@ -86,7 +92,7 @@ async fn main() {
         .route("/logout", routing::get(logout))
         .route("/login", routing::get(login))
         .route("/theme", routing::get(theme))
-        .layer(session_layer);
+        .layer(builder);
 
     axum::serve(tcp_listener, router).await.unwrap();
 }
