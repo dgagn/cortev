@@ -293,7 +293,7 @@ where
     type Rejection = SessionMissingFromExt;
 
     async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
-        parts.try_take_session()
+        parts.take_session().ok_or(SessionMissingFromExt)
     }
 }
 
@@ -322,7 +322,7 @@ where
     type Rejection = SessionMissingFromExt;
 
     async fn from_request_parts(parts: &mut Parts, _: &S) -> Result<Self, Self::Rejection> {
-        let session = parts.try_session()?;
+        let session = parts.session().ok_or(SessionMissingFromExt)?;
         Ok(Self(session))
     }
 }

@@ -1,18 +1,15 @@
 use std::time::Duration;
 
 use axum::{
-    extract::Request,
     http::StatusCode,
-    middleware::{from_fn, Next},
     response::{IntoResponse, Response},
     routing, Router,
 };
 pub use cortev::session::Session;
 use cortev::session::{
     driver::RedisDriver,
-    error::{IntoErrorResponse, SessionError, SessionMissingFromExt},
+    error::{IntoErrorResponse, SessionError},
     middleware::SessionLayer,
-    CloneSession,
 };
 use deadpool_redis::{Config, PoolConfig, Runtime};
 use tokio::net::TcpListener;
@@ -61,18 +58,6 @@ impl IntoErrorResponse for HandleError {
     }
 }
 
-async fn middleware(
-    session: CloneSession,
-    request: Request,
-    next: Next,
-) -> Result<Response, SessionMissingFromExt> {
-    println!("took session is here {:?}", session.into_inner());
-
-    let response = next.run(request).await;
-
-    Ok(response)
-}
-
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::fmt()
@@ -90,6 +75,7 @@ async fn main() {
         .with_prefix("session:")
         .build();
 
+    // todo: check the headers for all the set-cookies and encrypt them with config
     let session = SessionLayer::builder()
         .with_driver(driver)
         .with_cookie("id")
@@ -104,7 +90,6 @@ async fn main() {
         .route("/logout", routing::get(logout))
         .route("/login", routing::get(login))
         .route("/theme", routing::get(theme))
-        .layer(from_fn(middleware))
         .layer(session);
 
     axum::serve(tcp_listener, router).await.unwrap();
