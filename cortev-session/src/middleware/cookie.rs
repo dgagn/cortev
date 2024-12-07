@@ -4,7 +4,7 @@ use cookie::Cookie;
 use http::{header, HeaderMap};
 
 #[cfg_attr(feature = "tracing", tracing::instrument(skip(headers, cookie_name)))]
-pub fn session_cookie(
+pub(crate) fn session_cookie(
     headers: &HeaderMap,
     cookie_name: impl Into<Cow<'static, str>>,
 ) -> Option<Cookie<'_>> {
