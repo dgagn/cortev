@@ -1,6 +1,6 @@
 use std::{fmt, ops::Deref, sync::Arc};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct SessionKey(Arc<str>);
 
 impl SessionKey {
@@ -44,5 +44,12 @@ impl From<SessionKey> for String {
 impl fmt::Display for SessionKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+impl fmt::Debug for SessionKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // First 8 characters of the key
+        write!(f, "{}...", &self.0[..16])
     }
 }

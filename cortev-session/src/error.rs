@@ -37,7 +37,7 @@ pub enum SessionError {
     #[error("redis command error")]
     CommandError(#[from] ::redis::RedisError),
 
-    #[error("cannot {kind} the session data {source} from key {key:?}")]
+    #[error("cannot {kind} the session data from key {key:?}")]
     SessionKindError {
         #[source]
         source: Box<Self>,
@@ -66,10 +66,10 @@ pub(crate) fn log_error_chain(error: &dyn std::error::Error) -> String {
     let mut current = error.source();
     let mut idx = 0;
     if current.is_some() {
-        message.push_str("Caused by:\n");
+        message.push_str("Caused by:");
     }
     while let Some(source) = current {
-        message.push_str(&format!("{}: {}\n", idx, source));
+        message.push_str(&format!("\n{}: {}", idx, source));
         current = source.source();
         idx += 1;
     }

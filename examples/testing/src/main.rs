@@ -7,8 +7,8 @@ use axum::{
 };
 pub use cortev::session::Session;
 use cortev::session::{
-    driver::{RedisDriver, SessionError},
-    error::IntoErrorResponse,
+    driver::RedisDriver,
+    error::{IntoErrorResponse, SessionError},
     middleware::{SessionKind, SessionLayer},
 };
 use deadpool_redis::{Config, PoolConfig, Runtime};
