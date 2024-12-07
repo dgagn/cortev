@@ -15,7 +15,7 @@ use tower_service::Service;
 use crate::{
     builder::BuildSession,
     driver::{SessionError, TokenExt},
-    error::IntoResponseError,
+    error::IntoErrorResponse,
     Session, SessionData, SessionState,
 };
 
@@ -36,7 +36,7 @@ pub struct SessionMiddleware<S, D, C, H>
 where
     D: SessionDriver,
     C: Into<Cow<'static, str>>,
-    H: IntoResponseError,
+    H: IntoErrorResponse,
 {
     inner: S,
     driver: D,
@@ -48,7 +48,7 @@ impl<S, D, C, H> SessionMiddleware<S, D, C, H>
 where
     D: SessionDriver,
     C: Into<Cow<'static, str>>,
-    H: IntoResponseError,
+    H: IntoErrorResponse,
 {
     pub fn new(inner: S, driver: D, kind: SessionKind<C>, handler: Option<H>) -> Self {
         Self {
@@ -65,7 +65,7 @@ pub struct SessionLayer<D, C, H>
 where
     D: SessionDriver,
     C: Into<Cow<'static, str>>,
-    H: IntoResponseError,
+    H: IntoErrorResponse,
 {
     driver: D,
     kind: SessionKind<C>,
@@ -76,7 +76,7 @@ impl<D, C, H> SessionLayer<D, C, H>
 where
     D: SessionDriver,
     C: Into<Cow<'static, str>>,
-    H: IntoResponseError,
+    H: IntoErrorResponse,
 {
     pub fn new(driver: D, kind: SessionKind<C>, error_handler: Option<H>) -> Self {
         Self {
@@ -91,7 +91,7 @@ impl<S, D, C, H> Layer<S> for SessionLayer<D, C, H>
 where
     D: SessionDriver + Clone,
     C: Into<Cow<'static, str>> + Clone,
-    H: IntoResponseError + Clone,
+    H: IntoErrorResponse + Clone,
 {
     type Service = SessionMiddleware<S, D, C, H>;
 
@@ -138,7 +138,7 @@ where
     S::Future: Send + 'static,
     S::Error: IntoResponse,
     S::Response: IntoResponse,
-    H: IntoResponseError<Error = SessionError> + Clone + Send + 'static,
+    H: IntoErrorResponse<Error = SessionError> + Clone + Send + 'static,
 {
     type Response = Response;
     type Error = Infallible;
@@ -184,7 +184,7 @@ where
                         tracing::error!("Error reading session: {:?}", err);
 
                         return if let Some(handler) = error_handler {
-                            handler.into_response_error(err)
+                            handler.into_error_response(err)
                         } else {
                             err.into_response()
                         };
@@ -202,7 +202,7 @@ where
                     Ok(value) => value,
                     Err(err) => {
                         return if let Some(handler) = error_handler {
-                            handler.into_response_error(err)
+                            handler.into_error_response(err)
                         } else {
                             err.into_response()
                         };
@@ -237,7 +237,7 @@ where
                         tracing::error!("Session error: {:?}", err);
 
                         return if let Some(handler) = error_handler {
-                            handler.into_response_error(err)
+                            handler.into_error_response(err)
                         } else {
                             err.into_response()
                         };

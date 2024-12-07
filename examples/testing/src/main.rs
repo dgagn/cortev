@@ -1,20 +1,18 @@
 use std::time::Duration;
 
 use axum::{
-    error_handling::HandleErrorLayer,
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing, BoxError, Router,
+    routing, Router,
 };
 pub use cortev::session::Session;
 use cortev::session::{
-    driver::RedisDriver,
-    error::AuthorizationLayer,
+    driver::{RedisDriver, SessionError},
+    error::IntoErrorResponse,
     middleware::{SessionKind, SessionLayer},
 };
-use deadpool_redis::{Config, Runtime};
+use deadpool_redis::{Config, PoolConfig, Runtime};
 use tokio::net::TcpListener;
-use tower::ServiceBuilder;
 
 async fn handler() -> &'static str {
     "Hello, world!"
@@ -48,10 +46,16 @@ async fn logout(session: Session) -> (Session, &'static str) {
     (session, "You are logged out!")
 }
 
-async fn handle_error(error: BoxError) -> Response {
-    println!("Error: {:?}", error);
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[error("fuck an error occured?")]
+struct HandleError;
 
-    (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
+impl IntoErrorResponse for HandleError {
+    type Error = SessionError;
+
+    fn into_error_response(self, error: SessionError) -> Response {
+        (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
+    }
 }
 
 #[tokio::main]
@@ -60,7 +64,10 @@ async fn main() {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let config = Config::from_url("redis://127.0.0.1:6379");
+    let mut config = Config::from_url("redis://127.0.0.1:6379");
+    let mut poolconfig = PoolConfig::new(0);
+    poolconfig.timeouts.wait = Some(Duration::from_secs(1));
+    config.pool = Some(poolconfig);
     let pool = config.create_pool(Some(Runtime::Tokio1)).unwrap();
 
     let driver = RedisDriver::builder(pool)
@@ -69,7 +76,7 @@ async fn main() {
         .build();
 
     let kind = SessionKind::Cookie("id");
-    let session_layer = SessionLayer::new(driver, kind);
+    let session_layer = SessionLayer::new(driver, kind, Some(HandleError));
 
     let tcp_listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
 
@@ -78,7 +85,8 @@ async fn main() {
         .route("/dashboard", routing::get(dashboard))
         .route("/logout", routing::get(logout))
         .route("/login", routing::get(login))
-        .route("/theme", routing::get(theme));
+        .route("/theme", routing::get(theme))
+        .layer(session_layer);
 
     axum::serve(tcp_listener, router).await.unwrap();
 }
