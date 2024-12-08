@@ -1,5 +1,5 @@
 [workspace]
-members = ["cortev", "cortev-*", "examples/*"]
+members = ["cortev", "session", "cookie", "examples/*"]
 default-members = ["cortev", "cortev-*"]
 resolver = "2"
 

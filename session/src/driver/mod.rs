@@ -13,7 +13,7 @@ pub(crate) trait TokenExt {
 impl TokenExt for SessionData {
     fn session() -> Self {
         let mut map = Self::with_capacity(1);
-        let token = generate_random_key(40);
+        let token = generate_random_key(32);
         map.insert(Cow::Borrowed("_token"), Value::String(token));
         map
     }
@@ -111,6 +111,9 @@ pub trait SessionDriver: Sync {
 /// Generates a random session key.
 ///
 /// [OWASP recommends](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#session-id-entropy)
+#[cfg_attr(feature = "tracing", tracing::instrument())]
 pub fn generate_random_key(value: usize) -> String {
-    Alphanumeric.sample_string(&mut rand::thread_rng(), value)
+    #[cfg(feature = "tracing")]
+    tracing::info!("Generating random key from bytes");
+    Alphanumeric.sample_string(&mut rand::rngs::OsRng, value)
 }

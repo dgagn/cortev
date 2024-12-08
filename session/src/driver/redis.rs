@@ -276,7 +276,7 @@ impl SessionDriver for RedisDriver {
         let old_prefixed_key = self.prefixed_key(&old_key);
 
         let data = data.to_json()?;
-        let new_key = generate_random_key(64);
+        let new_key = generate_random_key(32);
         let prefixed_new_key = self.prefixed_key(&new_key);
         let mut pipeline = redis::pipe();
         pipeline.set_ex(&prefixed_new_key, data, self.ttl.as_secs());
@@ -309,7 +309,7 @@ impl SessionDriver for RedisDriver {
         let prefixed_key = self.prefixed_key(&key);
 
         let data = data.to_json()?;
-        let new_key = generate_random_key(64);
+        let new_key = generate_random_key(32);
         let prefixed_new_key = self.prefixed_key(&new_key);
         let mut pipeline = redis::pipe();
         pipeline.del(&prefixed_key);

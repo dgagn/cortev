@@ -9,13 +9,14 @@ repository = "https://github.com/cortev/framework"
 readme = "README.md"
 
 [dependencies]
-cortev-session = { path = "../cortev-session", optional = true }
+cortev-session = { path = "../session", optional = true }
 
 [lints]
 workspace = true
 
 
 [features]
-default = []
+default = ["cortev-session?/tracing"]
 session = ["dep:cortev-session"]
-session-memory = ["session", "cortev-session?/redis"]
+session-memory = ["session", "cortev-session?/memory"]
+session-redis = ["session", "cortev-session?/redis"]

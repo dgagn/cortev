@@ -30,7 +30,7 @@ serde_json = "1.0.133"
 workspace = true
 
 [features]
-default = []
+default = ["tracing"]
 memory = ["dep:dashmap"]
 redis = ["dep:redis", "dep:deadpool-redis"]
 tracing = ["dep:tracing"]
