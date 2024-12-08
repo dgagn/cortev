@@ -16,7 +16,9 @@ workspace = true
 
 
 [features]
-default = ["cortev-session?/tracing"]
+default = ["tracing"]
+tracing = ["cortev-session?/tracing"]
 session = ["dep:cortev-session"]
 session-memory = ["session", "cortev-session?/memory"]
 session-redis = ["session", "cortev-session?/redis"]
+session-redis-pool = ["session", "cortev-session?/redis-pool"]

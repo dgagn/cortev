@@ -29,7 +29,7 @@ pub enum SessionError {
     #[error("failed to serialize session data")]
     DeserializeJson(#[source] serde_json::Error),
 
-    #[cfg(feature = "redis")]
+    #[cfg(feature = "redis-pool")]
     #[error("cannot acquire a connection from the pool")]
     AcquireConnection(#[source] ::deadpool_redis::PoolError),
 

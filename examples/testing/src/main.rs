@@ -7,7 +7,7 @@ use axum::{
 };
 pub use cortev::session::Session;
 use cortev::session::{
-    driver::{MemoryDriver, RedisDriver},
+    driver::RedisDriver,
     error::{IntoErrorResponse, SessionError},
     middleware::SessionLayer,
 };
@@ -73,9 +73,6 @@ async fn main() {
         .with_prefix("session:")
         .build();
 
-    //let driver = MemoryDriver::new();
-
-    // todo: check the headers for all the set-cookies and encrypt them with config
     let session = SessionLayer::builder()
         .with_driver(driver)
         .with_cookie("id")
