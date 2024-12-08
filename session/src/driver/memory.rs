@@ -13,6 +13,12 @@ pub struct MemoryDriver {
     ttl: Duration,
 }
 
+impl MemoryDriver {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 impl Default for MemoryDriver {
     fn default() -> Self {
         Self {

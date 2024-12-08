@@ -7,15 +7,16 @@ use axum::{
 };
 pub use cortev::session::Session;
 use cortev::session::{
-    driver::RedisDriver,
+    driver::{MemoryDriver, RedisDriver},
     error::{IntoErrorResponse, SessionError},
     middleware::SessionLayer,
 };
-use deadpool_redis::{Config, PoolConfig, Runtime};
+use deadpool_redis::redis::{aio::ConnectionManager, Client};
 use tokio::net::TcpListener;
 
-async fn handler() -> &'static str {
-    "Hello, world!"
+async fn handler() -> Response {
+    //let session = session.insert("hello", "world");
+    ("Hello, world!").into_response()
 }
 
 async fn theme(session: Session) -> String {
@@ -64,16 +65,15 @@ async fn main() {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let mut config = Config::from_url("redis://127.0.0.1:6379");
-    let poolconfig = PoolConfig::new(4);
-    //poolconfig.timeouts.wait = Some(Duration::from_secs(1));
-    config.pool = Some(poolconfig);
-    let pool = config.create_pool(Some(Runtime::Tokio1)).unwrap();
+    let client = Client::open("redis+unix:///var/run/redis/redis.sock").unwrap();
+    let connection_manager = ConnectionManager::new(client).await.unwrap();
 
-    let driver = RedisDriver::builder(pool)
+    let driver = RedisDriver::builder(connection_manager)
         .with_ttl(Duration::from_secs(60 * 60 * 120))
         .with_prefix("session:")
         .build();
+
+    //let driver = MemoryDriver::new();
 
     // todo: check the headers for all the set-cookies and encrypt them with config
     let session = SessionLayer::builder()

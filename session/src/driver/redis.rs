@@ -6,7 +6,10 @@ use std::{
 };
 
 use deadpool_redis::Pool;
-use redis::{cmd, AsyncCommands, FromRedisValue, RedisError};
+use redis::{
+    aio::{ConnectionLike, ConnectionManager},
+    cmd, FromRedisValue, RedisError,
+};
 
 use crate::{
     builder::BuildSession, driver::SessionError, error::SessionErrorKind, Session, SessionData,
@@ -18,11 +21,18 @@ use super::{generate_session_key, FromJson, SessionDriver, SessionResult, ToJson
 #[derive(Clone)]
 pub enum RedisConnectionKind {
     Pool(Pool),
+    Connection(ConnectionManager),
 }
 
 impl From<deadpool_redis::Pool> for RedisConnectionKind {
     fn from(pool: Pool) -> Self {
         Self::Pool(pool)
+    }
+}
+
+impl From<redis::aio::ConnectionManager> for RedisConnectionKind {
+    fn from(value: redis::aio::ConnectionManager) -> Self {
+        Self::Connection(value)
     }
 }
 
@@ -105,7 +115,7 @@ impl RedisDriver {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip(self, conn, cmd)))]
     async fn retry<T: FromRedisValue>(
         &self,
-        mut conn: impl AsyncCommands,
+        mut conn: impl ConnectionLike,
         cmd: RedisCommand<'_>,
     ) -> Result<T, RedisError> {
         let mut can_retry = true;
@@ -162,6 +172,15 @@ impl RedisDriver {
 
                 let connection = pool.get().await.map_err(SessionError::AcquireConnection)?;
 
+                let value = self.retry::<T>(connection, cmd).await?;
+
+                Ok::<T, SessionError>(value)
+            }
+            RedisConnectionKind::Connection(connection) => {
+                #[cfg(feature = "tracing")]
+                tracing::debug!("Getting a connection from the connection manager...");
+
+                let connection = connection.clone();
                 let value = self.retry::<T>(connection, cmd).await?;
 
                 Ok::<T, SessionError>(value)
@@ -343,6 +362,7 @@ impl Debug for RedisConnectionKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             RedisConnectionKind::Pool(_) => write!(f, "Pool"),
+            RedisConnectionKind::Connection(_) => write!(f, "Connection"),
         }
     }
 }
