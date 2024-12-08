@@ -13,7 +13,7 @@ pub(crate) trait TokenExt {
 impl TokenExt for SessionData {
     fn session() -> Self {
         let mut map = Self::with_capacity(1);
-        let token = generate_random_key(32);
+        let token = generate_csrf_token();
         map.insert(Cow::Borrowed("_token"), Value::String(token));
         map
     }
@@ -76,7 +76,7 @@ pub trait SessionDriver: Sync {
     fn ttl(&self) -> Duration;
 
     fn create(&self, data: SessionData) -> impl Future<Output = SessionResult<SessionKey>> + Send {
-        let key = generate_random_key(64);
+        let key = generate_session_key();
         self.write(key.into(), data)
     }
 
@@ -106,6 +106,14 @@ pub trait SessionDriver: Sync {
             self.create(data).await
         }
     }
+}
+
+pub fn generate_session_key() -> String {
+    generate_random_key(40)
+}
+
+pub fn generate_csrf_token() -> String {
+    generate_random_key(40)
 }
 
 /// Generates a random session key.

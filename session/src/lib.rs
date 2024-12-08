@@ -2,7 +2,7 @@ pub mod builder;
 pub mod driver;
 pub mod ext;
 mod key;
-use driver::generate_random_key;
+use driver::generate_csrf_token;
 use error::SessionMissingFromExt;
 use ext::RequestSessionExt;
 use http::request::Parts;
@@ -258,7 +258,7 @@ impl Session {
     /// Regenerates the session token, marking the session state as changed.
     #[must_use]
     pub fn regenerate_token(mut self) -> Self {
-        let token = generate_random_key(32);
+        let token = generate_csrf_token();
         self.data.insert("_token".into(), Value::String(token));
         self.state = self.state.transition(SessionState::Changed);
         self
