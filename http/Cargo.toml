@@ -8,6 +8,7 @@ axum = "0.7.9"
 axum-core = "0.4.5"
 clap = { version = "4.5.23", features = ["derive"] }
 ipnet = "2.10.1"
+systemd = "0.10.0"
 tokio = { version = "1.42.0", features = ["full"] }
 
 [lints]

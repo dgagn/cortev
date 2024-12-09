@@ -1,13 +1,17 @@
-use std::os::fd::FromRawFd;
+use std::{net::SocketAddr, os::fd::FromRawFd};
 
-use axum::{routing, Router};
+use axum::{
+    extract::ConnectInfo,
+    response::{IntoResponse, Response},
+    routing, Router,
+};
 use tokio::{net::TcpListener, signal};
 
-async fn handler() -> &'static str {
+async fn handler(ConnectInfo(info): ConnectInfo<SocketAddr>) -> Response {
+    println!("Connection from: {}", info);
     println!("Handling request");
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     println!("Request handled");
-    "Hello, 3!"
+    (format!("Hello, {}!", info)).into_response()
 }
 
 #[tokio::main]
@@ -30,10 +34,13 @@ async fn main() {
             .expect("failed to bind to address")
     };
 
-    axum::serve(tcp_listener, router)
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .expect("failed to start server");
+    axum::serve(
+        tcp_listener,
+        router.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .expect("failed to start server");
 
     println!("Server ended");
 }
@@ -67,8 +74,8 @@ async fn shutdown_signal() {
         _ = terminate => {
             println!("SIGTERM received");
         },
-        _ = hup => {
-            println!("SIGHUP received");
-        },
+        //_ = hup => {
+        //    println!("SIGHUP received");
+        //},
     }
 }
