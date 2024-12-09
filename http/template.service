@@ -1,0 +1,19 @@
+[Unit]
+Description=Template
+Requires=template.socket
+After=network.target
+
+[Service]
+ExecStart=/home/ovior/projects/cortev/target/release/http
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+
+Environment=LISTEN_FDS=1
+Environment=LISTEN_PID=%p
+
+KillMode=mixed
+KillSignal=SIGTERM
+SendSIGKILL=no
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Socket for example
+
+[Socket]
+ListenStream=8091
+ReusePort=true
+SocketMode=0660
+
+[Install]
+WantedBy=sockets.target
