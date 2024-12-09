@@ -7,13 +7,9 @@ After=network.target
 ExecStart=/home/ovior/projects/cortev/target/release/http
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
-
-Environment=LISTEN_FDS=1
-Environment=LISTEN_PID=%p
-
-KillMode=mixed
-KillSignal=SIGTERM
-SendSIGKILL=no
+TimeoutStopSec=10
+KillMode=process
+Sockets=template.socket
 
 [Install]
 WantedBy=multi-user.target

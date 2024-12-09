@@ -1,11 +1,13 @@
 use std::os::fd::FromRawFd;
 
 use axum::{routing, Router};
-use tokio::{net::TcpListener, signal, sync::Notify};
+use tokio::{net::TcpListener, signal};
 
 async fn handler() -> &'static str {
+    println!("Handling request");
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-    "Hello, World!"
+    println!("Request handled");
+    "Hello, 3!"
 }
 
 #[tokio::main]
@@ -14,21 +16,16 @@ async fn main() {
 
     let router = Router::new().route("/", routing::get(handler));
 
-    let notify_shutdown = Arc::new(Notify::new());
-    let notify_shutdown_clone = notify_shutdown.clone();
-
     let tcp_listener = if let Ok(listen_fds) = std::env::var("LISTEN_FDS") {
         println!("LISTEN_FDS: {}", listen_fds);
-        let listen_fds: i32 = listen_fds.parse().expect("LISTEN_FDS should be a number");
-        if listen_fds == 1 {
-            let raw_fd = 3;
-            let std_listener = unsafe { std::net::TcpListener::from_raw_fd(raw_fd) };
-            TcpListener::from_std(std_listener).expect("failed to convert to tokio listener")
-        } else {
-            panic!("LISTEN_FDS should be 1")
-        }
+        let listen_fds: i32 = listen_fds.parse().expect("LISTEN_FDS should be 1");
+        assert_eq!(listen_fds, 1);
+        let raw_fd = 3;
+        let std_listener = unsafe { std::net::TcpListener::from_raw_fd(raw_fd) };
+        TcpListener::from_std(std_listener).expect("failed to convert to tokio listener")
     } else {
-        TcpListener::bind("127.0.0.1:8091")
+        // local dev
+        TcpListener::bind("127.0.0.1:8080")
             .await
             .expect("failed to bind to address")
     };
@@ -37,6 +34,8 @@ async fn main() {
         .with_graceful_shutdown(shutdown_signal())
         .await
         .expect("failed to start server");
+
+    println!("Server ended");
 }
 
 async fn shutdown_signal() {
@@ -54,7 +53,7 @@ async fn shutdown_signal() {
             .await;
     };
 
-    let sigup = async {
+    let hup = async {
         signal::unix::signal(signal::unix::SignalKind::hangup())
             .expect("failed to install signal handler")
             .recv()
@@ -68,8 +67,8 @@ async fn shutdown_signal() {
         _ = terminate => {
             println!("SIGTERM received");
         },
-        _ = sigup => {
+        _ = hup => {
             println!("SIGHUP received");
-        }
+        },
     }
 }
