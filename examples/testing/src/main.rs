@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{net::SocketAddr, time::Duration};
 
 use axum::{
     http::StatusCode,
@@ -66,7 +66,7 @@ async fn main() {
         .init();
 
     let client = Client::open("redis+unix:///var/run/redis/redis.sock").unwrap();
-    let connection_manager = ConnectionManager::new(client).await.unwrap();
+    let connection_manager = ConnectionManager::new(client.clone()).await.unwrap();
 
     let driver = RedisDriver::builder(connection_manager)
         .with_ttl(Duration::from_secs(60 * 60 * 120))
@@ -89,5 +89,10 @@ async fn main() {
         .route("/theme", routing::get(theme))
         .layer(session);
 
-    axum::serve(tcp_listener, router).await.unwrap();
+    axum::serve(
+        tcp_listener,
+        router.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .unwrap();
 }

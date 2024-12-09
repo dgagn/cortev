@@ -101,7 +101,7 @@ dependencies = [
  "axum-macros",
  "bytes",
  "futures-util",
- "http",
+ "http 1.2.0",
  "http-body",
  "http-body-util",
  "hyper",
@@ -134,7 +134,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "futures-util",
- "http",
+ "http 1.2.0",
  "http-body",
  "http-body-util",
  "mime",
@@ -277,7 +277,7 @@ dependencies = [
  "axum-core",
  "cookie",
  "futures",
- "http",
+ "http 1.2.0",
  "pin-project-lite",
  "tower-layer",
  "tower-service",
@@ -293,7 +293,7 @@ dependencies = [
  "cookie",
  "dashmap",
  "deadpool-redis",
- "http",
+ "http 1.2.0",
  "rand",
  "redis",
  "serde",
@@ -621,6 +621,16 @@ dependencies = [
 
 [[package]]
 name = "http"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "axum-core",
+ "ipnet",
+ "tokio",
+]
+
+[[package]]
+name = "http"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f16ca2af56261c99fba8bac40a10251ce8188205a4c448fbb745a2e4daa76fea"
@@ -637,7 +647,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
 dependencies = [
  "bytes",
- "http",
+ "http 1.2.0",
 ]
 
 [[package]]
@@ -648,7 +658,7 @@ checksum = "793429d76616a256bcb62c2a2ec2bed781c8307e797e2598c50010f2bee2544f"
 dependencies = [
  "bytes",
  "futures-util",
- "http",
+ "http 1.2.0",
  "http-body",
  "pin-project-lite",
 ]
@@ -674,7 +684,7 @@ dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
- "http",
+ "http 1.2.0",
  "http-body",
  "httparse",
  "httpdate",
@@ -692,7 +702,7 @@ checksum = "df2dcfbe0677734ab2f3ffa7fa7bfd4706bfdc1ef393f2ee30184aed67e631b4"
 dependencies = [
  "bytes",
  "futures-util",
- "http",
+ "http 1.2.0",
  "http-body",
  "hyper",
  "pin-project-lite",
@@ -857,6 +867,12 @@ checksum = "a0c10553d664a4d0bcff9f4215d0aac67a639cc68ef660840afe309b807bc9f5"
 dependencies = [
  "generic-array",
 ]
+
+[[package]]
+name = "ipnet"
+version = "2.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddc24109865250148c2e0f3d25d4f0f479571723792d3802153c60922a4fb708"
 
 [[package]]
 name = "itertools"
