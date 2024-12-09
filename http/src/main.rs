@@ -60,22 +60,12 @@ async fn shutdown_signal() {
             .await;
     };
 
-    let hup = async {
-        signal::unix::signal(signal::unix::SignalKind::hangup())
-            .expect("failed to install signal handler")
-            .recv()
-            .await;
-    };
-
     tokio::select! {
         _ = ctrl_c => {
             println!("Ctrl+C received");
         },
         _ = terminate => {
             println!("SIGTERM received");
-        },
-        //_ = hup => {
-        //    println!("SIGHUP received");
-        //},
+        }
     }
 }

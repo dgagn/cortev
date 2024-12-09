@@ -8,8 +8,8 @@ ExecStart=/home/ovior/projects/cortev/target/release/http
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 TimeoutStopSec=10
-KillMode=process
 Sockets=template.socket
+KillMode=mixed
 
 [Install]
 WantedBy=multi-user.target
