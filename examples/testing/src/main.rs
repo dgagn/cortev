@@ -1,9 +1,15 @@
-use std::{net::SocketAddr, time::Duration};
+use std::{
+    net::{IpAddr, SocketAddr},
+    time::Duration,
+};
 
 use axum::{
+    extract::connect_info::Connected,
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing, Router,
+    routing,
+    serve::IncomingStream,
+    Router,
 };
 pub use cortev::session::Session;
 use cortev::session::{
@@ -91,8 +97,27 @@ async fn main() {
 
     axum::serve(
         tcp_listener,
-        router.into_make_service_with_connect_info::<SocketAddr>(),
+        router.into_make_service_with_connect_info::<ClientInfo>(),
     )
     .await
     .unwrap();
+}
+
+#[derive(Debug, Clone)]
+struct ClientInfo {
+    canonical_ip: IpAddr,
+}
+
+impl ClientInfo {
+    fn ip(&self) -> &IpAddr {
+        &self.canonical_ip
+    }
+}
+
+impl Connected<IncomingStream<'_>> for ClientInfo {
+    fn connect_info(stream: IncomingStream<'_>) -> Self {
+        ClientInfo {
+            canonical_ip: stream.remote_addr().ip().to_canonical(),
+        }
+    }
 }
