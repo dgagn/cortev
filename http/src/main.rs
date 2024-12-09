@@ -36,6 +36,8 @@ async fn main() {
             .expect("failed to bind to address")
     };
 
+    println!("Server started with {}", tcp_listener.local_addr().unwrap());
+
     axum::serve(
         tcp_listener,
         router.into_make_service_with_connect_info::<ClientInfo>(),
