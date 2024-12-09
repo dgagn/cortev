@@ -1,17 +1,19 @@
-use std::{net::SocketAddr, os::fd::FromRawFd};
+use std::{net::IpAddr, os::fd::FromRawFd};
 
 use axum::{
-    extract::ConnectInfo,
+    extract::{connect_info::Connected, ConnectInfo},
     response::{IntoResponse, Response},
-    routing, Router,
+    routing,
+    serve::IncomingStream,
+    Router,
 };
 use tokio::{net::TcpListener, signal};
 
-async fn handler(ConnectInfo(info): ConnectInfo<SocketAddr>) -> Response {
-    println!("Connection from: {}", info);
+async fn handler(ConnectInfo(info): ConnectInfo<ClientInfo>) -> Response {
+    println!("Connection from: {}", info.ip());
     println!("Handling request");
     println!("Request handled");
-    (format!("Hello, {}!", info)).into_response()
+    (format!("Hello, {}!", info.ip())).into_response()
 }
 
 #[tokio::main]
@@ -36,13 +38,32 @@ async fn main() {
 
     axum::serve(
         tcp_listener,
-        router.into_make_service_with_connect_info::<SocketAddr>(),
+        router.into_make_service_with_connect_info::<ClientInfo>(),
     )
     .with_graceful_shutdown(shutdown_signal())
     .await
     .expect("failed to start server");
 
     println!("Server ended");
+}
+
+#[derive(Debug, Clone)]
+struct ClientInfo {
+    canonical_ip: IpAddr,
+}
+
+impl ClientInfo {
+    fn ip(&self) -> &IpAddr {
+        &self.canonical_ip
+    }
+}
+
+impl Connected<IncomingStream<'_>> for ClientInfo {
+    fn connect_info(stream: IncomingStream<'_>) -> Self {
+        ClientInfo {
+            canonical_ip: stream.remote_addr().ip().to_canonical(),
+        }
+    }
 }
 
 async fn shutdown_signal() {
