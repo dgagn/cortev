@@ -1,4 +1,4 @@
-use std::{net::IpAddr, os::fd::FromRawFd};
+use std::net::IpAddr;
 
 use axum::{
     extract::{connect_info::Connected, ConnectInfo},
@@ -7,7 +7,10 @@ use axum::{
     serve::IncomingStream,
     Router,
 };
-use tokio::{net::TcpListener, signal};
+use listener::SocketListener;
+use tokio::signal;
+
+mod listener;
 
 async fn handler(ConnectInfo(info): ConnectInfo<ClientInfo>) -> Response {
     println!("Connection from: {}", info.ip());
@@ -22,19 +25,11 @@ async fn main() {
 
     let router = Router::new().route("/", routing::get(handler));
 
-    let tcp_listener = if let Ok(listen_fds) = std::env::var("LISTEN_FDS") {
-        println!("LISTEN_FDS: {}", listen_fds);
-        let listen_fds: i32 = listen_fds.parse().expect("LISTEN_FDS should be 1");
-        assert_eq!(listen_fds, 1);
-        let raw_fd = 3;
-        let std_listener = unsafe { std::net::TcpListener::from_raw_fd(raw_fd) };
-        TcpListener::from_std(std_listener).expect("failed to convert to tokio listener")
-    } else {
-        // local dev
-        TcpListener::bind("127.0.0.1:8080")
-            .await
-            .expect("failed to bind to address")
-    };
+    let socket_listener = SocketListener::new("127.0.0.1:8080")
+        .await
+        .expect("failed to create listener");
+
+    let tcp_listener = socket_listener.into_inner();
 
     println!("Server started with {}", tcp_listener.local_addr().unwrap());
 
