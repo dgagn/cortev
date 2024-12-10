@@ -1,6 +1,6 @@
 [workspace]
-members = ["cortev", "session", "cookie", "examples/*", "http"]
-default-members = ["cortev", "session", "cookie"]
+members = ["cortev", "session", "cookie", "examples/*", "http", "auth"]
+default-members = ["cortev", "session", "cookie", "http"]
 resolver = "2"
 
 [workspace.lints.rust]

@@ -1,0 +1,12 @@
+[package]
+name = "auth"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bcrypt = "0.16.0"
+sqlx = { version = "0.8.2", features = ["mysql", "runtime-tokio-rustls", "macros", "chrono"] }
+tokio = { version = "1.42.0", features = ["full"] }
+
+[lints]
+workspace = true

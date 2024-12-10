@@ -1,29 +1,30 @@
-use std::net::IpAddr;
+use std::sync::Arc;
 
 use axum::{
-    extract::{connect_info::Connected, ConnectInfo},
+    extract::Request,
     response::{IntoResponse, Response},
-    routing,
-    serve::IncomingStream,
-    Router,
+    routing, Router,
 };
+use ip::{ClientInfo, TrustedProxies};
 use listener::SocketListener;
+use middleware::layer::TrustedProxyLayer;
 use tokio::signal;
 
-mod listener;
+pub mod ip;
+pub mod listener;
+pub mod middleware;
 
-async fn handler(ConnectInfo(info): ConnectInfo<ClientInfo>) -> Response {
-    println!("Connection from: {}", info.ip());
-    println!("Handling request");
-    println!("Request handled");
-    (format!("Hello, {}!", info.ip())).into_response()
+async fn handler(_request: Request) -> Response {
+    let ip = "bob";
+    (format!("Hello, {}!", ip)).into_response()
 }
 
 #[tokio::main]
 async fn main() {
-    println!("Hello, world!");
+    let trusted_proxies = TrustedProxies::default();
+    let layer = TrustedProxyLayer::new(Arc::new(trusted_proxies));
 
-    let router = Router::new().route("/", routing::get(handler));
+    let router = Router::new().route("/", routing::get(handler)).layer(layer);
 
     let socket_listener = SocketListener::new("127.0.0.1:8080")
         .await
@@ -33,57 +34,11 @@ async fn main() {
 
     println!("Server started with {}", tcp_listener.local_addr().unwrap());
 
-    axum::serve(
-        tcp_listener,
-        router.into_make_service_with_connect_info::<ClientInfo>(),
-    )
-    .with_graceful_shutdown(shutdown_signal())
-    .await
-    .expect("failed to start server");
+    let value = router.into_make_service_with_connect_info::<ClientInfo>();
+
+    axum::serve(tcp_listener, value)
+        .await
+        .expect("failed to start server");
 
     println!("Server ended");
-}
-
-#[derive(Debug, Clone)]
-struct ClientInfo {
-    canonical_ip: IpAddr,
-}
-
-impl ClientInfo {
-    fn ip(&self) -> &IpAddr {
-        &self.canonical_ip
-    }
-}
-
-impl Connected<IncomingStream<'_>> for ClientInfo {
-    fn connect_info(stream: IncomingStream<'_>) -> Self {
-        ClientInfo {
-            canonical_ip: stream.remote_addr().ip().to_canonical(),
-        }
-    }
-}
-
-async fn shutdown_signal() {
-    let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl+C handler");
-    };
-
-    #[cfg(unix)]
-    let terminate = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("failed to install signal handler")
-            .recv()
-            .await;
-    };
-
-    tokio::select! {
-        _ = ctrl_c => {
-            println!("Ctrl+C received");
-        },
-        _ = terminate => {
-            println!("SIGTERM received");
-        }
-    }
 }
